@@ -6,6 +6,7 @@ import firrtl.transforms.DontTouchAnnotation
 
 object TopIO {
   def addIO(data: Data, name: String): Unit = {
+    data <> DontCare
     Seq(
       new ChiselAnnotation with RunFirrtlTransform {
         def toFirrtl = InnerIOAnnotation(data.toTarget, name)
@@ -19,6 +20,7 @@ object TopIO {
   }
 
   def getIO(data: Data, name: String): Unit = {
+    data <> DontCare
     Seq(
       new ChiselAnnotation with RunFirrtlTransform {
         def toFirrtl = TopIOAnnotation(data.toTarget, name)
