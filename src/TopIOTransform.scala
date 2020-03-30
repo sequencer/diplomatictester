@@ -73,13 +73,26 @@ class TopIOTransform extends Transform {
     }.toMap
     /** each module on the boring path will add new ports */
     val moduleNewPortsMap: Map[ModuleTarget, Seq[String]] = {
-      ???
+      val m = mutable.Map[ModuleTarget, Seq[String]]()
+      ioPairs.foreach {
+        case (name, (rt, _)) =>
+
+          /** update mutable map */
+          instanceGraph.findInstancesInHierarchy(rt.moduleTarget.module).head.map(wdi => ModuleTarget(state.circuit.main, wdi.module)).foreach { mt =>
+            m.get(mt) match {
+              case Some(v) => m(mt) = v :+ name
+              case None => m(mt) = Seq(name)
+            }
+          }
+      }
+      m.toMap
     }
     val updatedModules: Seq[DefModule] = state.circuit.modules.map {
       module =>
 
         /** [[ModuleTarget]] based on [[DefModule]]. */
         val moduleTarget: ModuleTarget = ModuleTarget(state.circuit.main, module.name)
+        /** current module IO. */
         val portTargets = module.ports.map(p => Target.asTarget(moduleTarget)(WRef(p)))
         if (moduleNewPortsMap.contains(moduleTarget)) {
 
@@ -104,6 +117,7 @@ class TopIOTransform extends Transform {
           else if (moduleTarget == topModel) {
             /** all annotated Top IOs. */
             val portTargets = moduleNewPortsMap(moduleTarget).map(ioPairs).map(_._2)
+            /** get all reference target of port. */
 
           }
 
