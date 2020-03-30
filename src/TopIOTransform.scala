@@ -56,10 +56,10 @@ class TopIOTransform extends Transform {
       topDiffInner.foreach { name => throw new Exception(s"InnerIOAnnotation(someIO, $name) doesn't appear in TopIOAnnotation(someIO, $name)") }
       val topIOMap = topIOs.toMap
       innerIOs.map { case (t, n) =>
-        instanceGraph.findInstancesInHierarchy(t.moduleTarget.module).head.foldLeft("_TOPIO")(_ + "_" + _.name) + t.name -> (t, topIOMap(n))
+        instanceGraph.findInstancesInHierarchy(t.moduleTarget.module).head.foldLeft("_TOPIO_")(_ + _.name + "_") + t.name -> (t, topIOMap(n))
       }
       }.toMap
-    val bottomModels: Seq[ModuleTarget] = ioPairs.values.map(_._2.moduleTarget).toSeq
+    val bottomModels: Seq[ModuleTarget] = ioPairs.values.map(_._1.moduleTarget).toSeq
     /** collect port information from entire circuit. */
     val ioInfo: Map[String, (Type, Direction)] = state.circuit.modules.flatMap { m =>
       m.ports.flatMap {
@@ -99,8 +99,6 @@ class TopIOTransform extends Transform {
 
         /** [[ModuleTarget]] based on [[DefModule]]. */
         val moduleTarget: ModuleTarget = ModuleTarget(state.circuit.main, module.name)
-        /** current module IO. */
-        val portTargets = module.ports.map(p => Target.asTarget(moduleTarget)(WRef(p)))
         if (moduleNewPortsMap.contains(moduleTarget)) {
 
           /** bottom module */
@@ -150,7 +148,10 @@ class TopIOTransform extends Transform {
             val instanceNewPorts: Map[String, WSubField] = subModules.flatMap { it =>
               moduleNewPortsMap(it.moduleTarget).map(portName => portName -> WSubField(WRef(it.name), portName))
             }.toMap
+
             /** generate new connections. */
+            pprintln(moduleTarget)
+
             val netConnections = newPorts.map { case (name, port) => Connect(NoInfo, WRef(port), instanceNewPorts(name)) }.toSeq
             val m = module.asInstanceOf[Module]
             m.copy(ports = m.ports ++ newPorts.values, body = Block(netConnections :+ m.body))
@@ -161,6 +162,7 @@ class TopIOTransform extends Transform {
         else module
     }
     val newCircuit = state.circuit.copy(modules = updatedModules)
+    pprintln(newCircuit.serialize)
     val fixedCircuit = fixupCircuit(newCircuit)
     val annosx = state.annotations.filter {
       case _: InnerIOAnnotation => false

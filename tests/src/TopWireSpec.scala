@@ -11,6 +11,8 @@ import firrtl.options.TargetDirAnnotation
 class MonitorModule extends MultiIOModule {
   val o = IO(Decoupled(Bool()))
   val i = IO(Flipped(Decoupled(Bool())))
+  TopIO.addIO(clock, "clk")
+  TopIO.addIO(reset, "rst")
   TopIO.addIO(o, "out")
   TopIO.addIO(i, "in")
 }
@@ -58,10 +60,14 @@ class Top extends MultiIOModule {
   val mo = IO(DecoupledIO(Bool()))
   middleInstance.i <> mi
   middleInstance.o <> mo
-  val monitorO = IO(DecoupledIO(Bool()))
-  val monitorI = IO(Flipped(DecoupledIO(Bool())))
+  val monitorO = IO(Input(middleInstance.monitorInstance.o.cloneType))
+  val monitorI = IO(Output(middleInstance.monitorInstance.i.cloneType))
+  val monitorClock = IO(Output(middleInstance.monitorInstance.clock.cloneType))
+  val monitorReset = IO(Output(middleInstance.monitorInstance.reset.cloneType))
   TopIO.getIO(monitorO, "out")
   TopIO.getIO(monitorI, "in")
+  TopIO.getIO(monitorClock, "clk")
+  TopIO.getIO(monitorReset, "rst")
 }
 
 object Test extends App {
