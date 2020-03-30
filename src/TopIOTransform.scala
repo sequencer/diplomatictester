@@ -87,6 +87,13 @@ class TopIOTransform extends Transform {
       }
       m.toMap
     }
+
+    val moduleInstanceMap: Map[ModuleTarget, Seq[InstanceTarget]] = {
+      moduleNewPortsMap.keys.map {
+        module => module -> instanceGraph.getChildrenInstances(module.module).map(wdi => module.instOf(wdi.name, wdi.module)).toSeq
+      }.toMap
+    }
+
     val updatedModules: Seq[DefModule] = state.circuit.modules.map {
       module =>
 
@@ -115,26 +122,39 @@ class TopIOTransform extends Transform {
 
           /** top module */
           else if (moduleTarget == topModel) {
-            /** all annotated Top IOs. */
-            val portTargets = moduleNewPortsMap(moduleTarget).map(ioPairs).map(_._2)
-            /** get all reference target of port. */
-
+            /** all Module IO Refs. */
+            val ioRefMap: Map[String, WRef] = moduleNewPortsMap(moduleTarget).map { name =>
+              name -> WRef(Port(NoInfo, ioPairs(name)._2.ref, ioInfo(name)._2, ioInfo(name)._1))
+            }.toMap
+            /** get all sub-Module of this Module. */
+            val subModules = moduleInstanceMap(moduleTarget)
+            /** all Ref to new ports. */
+            val instanceNewPorts: Map[String, WSubField] = subModules.flatMap { it =>
+              moduleNewPortsMap(it.moduleTarget).map(portName => portName -> WSubField(WRef(it.name), portName))
+            }.toMap
+            /** generate new connections. */
+            val netConnections = ioRefMap.map { case (name, port) => Connect(NoInfo, port, instanceNewPorts(name)) }.toSeq
+            val m = module.asInstanceOf[Module]
+            m.copy(body = Block(netConnections :+ m.body))
           }
 
           /** middle module */
           else {
-            /** new IOs. */
-            val newPorts = moduleNewPortsMap(moduleTarget).map(name => Port(NoInfo, name, ioInfo(name)._2, ioInfo(name)._1))
-            val portTargets = newPorts.map(p => Target.asTarget(moduleTarget)(WRef(p)) -> p).toMap
-            /** generate new block */
-            val newConnects = portTargets.map {
-              case (rt, p) =>
-
-                /** Filter sub-instance which contains this new IO. */
-                Connect(NoInfo, WSubField(WRef(???), p.name), WRef(p))
-            }
+            /** all Module IO Refs. */
+            val newPorts: Map[String, Port] = moduleNewPortsMap(moduleTarget).map { name =>
+              name -> Port(NoInfo, ioPairs(name)._2.ref, ioInfo(name)._2, ioInfo(name)._1)
+            }.toMap
+            /** get all sub-Module of this Module. */
+            val subModules = moduleInstanceMap(moduleTarget)
+            /** all Ref to new ports. */
+            val instanceNewPorts: Map[String, WSubField] = subModules.flatMap { it =>
+              moduleNewPortsMap(it.moduleTarget).map(portName => portName -> WSubField(WRef(it.name), portName))
+            }.toMap
+            /** generate new connections. */
+            val netConnections = newPorts.map { case (name, port) => Connect(NoInfo, WRef(port), instanceNewPorts(name)) }.toSeq
+            val m = module.asInstanceOf[Module]
+            m.copy(ports = m.ports ++ newPorts.values, body = Block(netConnections :+ m.body))
           }
-
         }
 
         /** other module */
