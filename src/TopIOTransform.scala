@@ -102,10 +102,12 @@ class TopIOTransform extends Transform {
 
           /** bottom module */
           if (bottomModels.contains(moduleTarget)) {
-            /** require all IO is annotated, since whole module will be replaced. */
-            val portTargets = module.ports.map(p => Target.asTarget(moduleTarget)(WRef(p)) -> p).toMap
-            require((portTargets.filter(_._2.direction == Output).keys.toSeq diff ioPairs.map(_._2._1).toSeq).isEmpty, s"IO of bottom Moudle ${moduleTarget.name} are not fully annotated.")
-            val blocks = portTargets.map { case (rt, p) =>
+            /** require all output IO is annotated, since whole module will be replaced. */
+            val modulePorts = module.ports.map(p => Target.asTarget(moduleTarget)(WRef(p)) -> p).toMap
+            val annotatedPorts = ioPairs.values.map(_._1).toSeq intersect modulePorts.keys.toSeq
+            require((modulePorts.filter(_._2.direction == Output).keys.toSeq diff annotatedPorts).isEmpty, s"IO of bottom Moudle ${moduleTarget.name} are not fully annotated.")
+            val blocks = annotatedPorts.map { rt =>
+              val p = modulePorts(rt)
               val pair = ioPairs.find(_._2._1 == rt).get
               val newPort = Port(NoInfo, pair._1, p.direction match {
                 case Input => Output
@@ -113,7 +115,7 @@ class TopIOTransform extends Transform {
               }, p.tpe)
               val newConnect = Connect(NoInfo, WRef(newPort), WRef(p))
               (newPort, newConnect)
-            }.toSeq
+            }
             Module(module.info, module.name, module.ports ++ blocks.map(_._1), Block(blocks.map(_._2)))
           }
 
