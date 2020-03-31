@@ -5,7 +5,6 @@ import firrtl.analyses.InstanceGraph
 import firrtl.annotations._
 import firrtl.ir._
 import firrtl.passes._
-import pprint.pprintln
 import scala.collection.mutable
 
 /** Annotation to export IO to Top, driven by external module or testers. */
@@ -133,28 +132,27 @@ class TopIOTransform extends Transform {
             /** generate new connections. */
             val netConnections = ioRefMap.map { case (name, port) => Connect(NoInfo, port, instanceNewPorts(name)) }.toSeq
             val m = module.asInstanceOf[Module]
-            m.copy(body = Block(netConnections :+ m.body))
+            m.copy(body = Block(m.body +: netConnections))
           }
 
           /** middle module */
           else {
             /** all Module IO Refs. */
             val newPorts: Map[String, Port] = moduleNewPortsMap(moduleTarget).map { name =>
-              name -> Port(NoInfo, ioPairs(name)._2.ref, ioInfo(name)._2, ioInfo(name)._1)
+              name -> Port(NoInfo, name, ioInfo(name)._2, ioInfo(name)._1)
             }.toMap
             /** get all sub-Module of this Module. */
             val subModules = moduleInstanceMap(moduleTarget)
             /** all Ref to new ports. */
             val instanceNewPorts: Map[String, WSubField] = subModules.flatMap { it =>
-              moduleNewPortsMap(it.moduleTarget).map(portName => portName -> WSubField(WRef(it.name), portName))
+              moduleNewPortsMap.get(it.ofModuleTarget) match {
+                case Some(ports) => ports.map(portName => portName -> WSubField(WRef(it.name), portName))
+                case None => Nil
+              }
             }.toMap
-
-            /** generate new connections. */
-            pprintln(moduleTarget)
-
             val netConnections = newPorts.map { case (name, port) => Connect(NoInfo, WRef(port), instanceNewPorts(name)) }.toSeq
             val m = module.asInstanceOf[Module]
-            m.copy(ports = m.ports ++ newPorts.values, body = Block(netConnections :+ m.body))
+            m.copy(ports = m.ports ++ newPorts.values, body = Block(m.body +: netConnections))
           }
         }
 
@@ -162,7 +160,6 @@ class TopIOTransform extends Transform {
         else module
     }
     val newCircuit = state.circuit.copy(modules = updatedModules)
-    pprintln(newCircuit.serialize)
     val fixedCircuit = fixupCircuit(newCircuit)
     val annosx = state.annotations.filter {
       case _: InnerIOAnnotation => false
