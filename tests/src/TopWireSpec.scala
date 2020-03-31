@@ -2,6 +2,7 @@ package diplomatictester.tests
 
 import diplomatictester._
 import chisel3._
+import chisel3.experimental.DataMirror
 import chisel3.util._
 import chisel3.stage.ChiselGeneratorAnnotation
 import chisel3.util.experimental.BoringUtils
@@ -11,10 +12,8 @@ import firrtl.options.TargetDirAnnotation
 class MonitorModule extends MultiIOModule {
   val o = IO(Decoupled(Bool()))
   val i = IO(Flipped(Decoupled(Bool())))
-  TopIO.addIO(clock, "clk")
-  TopIO.addIO(reset, "rst")
-  TopIO.addIO(o, "out")
-  TopIO.addIO(i, "in")
+  TopIO.setIO(o, "out")
+  TopIO.setIO(i, "in")
 }
 
 class BufferModule extends MultiIOModule {
@@ -60,14 +59,8 @@ class Top extends MultiIOModule {
   val mo = IO(DecoupledIO(Bool()))
   middleInstance.i <> mi
   middleInstance.o <> mo
-  val monitorO = IO(Input(middleInstance.monitorInstance.o.cloneType))
-  val monitorI = IO(Output(middleInstance.monitorInstance.i.cloneType))
-  val monitorClock = IO(Output(middleInstance.monitorInstance.clock.cloneType))
-  val monitorReset = IO(Output(middleInstance.monitorInstance.reset.cloneType))
-  TopIO.getIO(monitorO, "out")
-  TopIO.getIO(monitorI, "in")
-  TopIO.getIO(monitorClock, "clk")
-  TopIO.getIO(monitorReset, "rst")
+  val monitorO = TopIO.getIO(middleInstance.monitorInstance.o, "out")
+  val monitorI = TopIO.getIO(middleInstance.monitorInstance.i, "in")
 }
 
 object Test extends App {

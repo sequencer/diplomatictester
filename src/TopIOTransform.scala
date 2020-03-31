@@ -104,7 +104,7 @@ class TopIOTransform extends Transform {
           if (bottomModels.contains(moduleTarget)) {
             /** require all IO is annotated, since whole module will be replaced. */
             val portTargets = module.ports.map(p => Target.asTarget(moduleTarget)(WRef(p)) -> p).toMap
-            require((portTargets.keys.toSeq diff ioPairs.map(_._2._1).toSeq).isEmpty, s"IO of bottom Moudle ${moduleTarget.name} are not fully annotated.")
+            require((portTargets.filter(_._2.direction == Output).keys.toSeq diff ioPairs.map(_._2._1).toSeq).isEmpty, s"IO of bottom Moudle ${moduleTarget.name} are not fully annotated.")
             val blocks = portTargets.map { case (rt, p) =>
               val pair = ioPairs.find(_._2._1 == rt).get
               val newPort = Port(NoInfo, pair._1, p.direction match {
