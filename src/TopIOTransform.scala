@@ -17,12 +17,15 @@ case class TopIOAnnotation(target: ReferenceTarget, name: String) extends Single
   def duplicate(n: ReferenceTarget) = this.copy(target = n)
 }
 
+/** firrtl need to decide:
+  * How [[TopIOTransform]] is injected to all Transforms
+  * [[inputForm]] and [[outputForm]] to decide the location of transform injection.
+  * and is deprecated after Dependency API added
+  * */
 class TopIOTransform extends Transform {
   def inputForm: CircuitForm = MidForm
 
   def outputForm: CircuitForm = MidForm
-
-  type InstPath = Seq[String]
 
   def execute(state: CircuitState): CircuitState = {
     /** [[InstanceGraph]] to generate */
@@ -99,7 +102,7 @@ class TopIOTransform extends Transform {
         /** [[ModuleTarget]] based on [[DefModule]]. */
         val moduleTarget: ModuleTarget = ModuleTarget(state.circuit.main, module.name)
         if (moduleNewPortsMap.contains(moduleTarget)) {
-
+          /*MonitorModule*/
           /** bottom module */
           if (bottomModels.contains(moduleTarget)) {
             /** require all output IO is annotated, since whole module will be replaced. */
@@ -119,7 +122,9 @@ class TopIOTransform extends Transform {
             Module(module.info, module.name, module.ports ++ blocks.map(_._1), Block(blocks.map(_._2)))
           }
 
-          /** top module */
+          /** top module
+            * connect [[TopIOAnnotation]] annotated [[ReferenceTarget]] to instance where have auto generated IO
+            * */
           else if (moduleTarget == topModel) {
             /** all Module IO Refs. */
             val ioRefMap: Map[String, WRef] = moduleNewPortsMap(moduleTarget).map { name =>
@@ -165,6 +170,7 @@ class TopIOTransform extends Transform {
     val fixedCircuit = fixupCircuit(newCircuit)
     val annosx = state.annotations.filter {
       case _: InnerIOAnnotation => false
+      case _: TopIOAnnotation => false
       case _ => true
     }
     state.copy(circuit = fixedCircuit, annotations = annosx)

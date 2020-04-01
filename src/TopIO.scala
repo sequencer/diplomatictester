@@ -17,6 +17,11 @@ object TopIO {
     io <> DontCare
     Seq(
       new ChiselAnnotation with RunFirrtlTransform {
+        def toFirrtl = InnerIOAnnotation(data.toTarget, name)
+
+        def transformClass = classOf[TopIOTransform]
+      },
+      new ChiselAnnotation with RunFirrtlTransform {
         def toFirrtl = TopIOAnnotation(io.toTarget, name)
 
         def transformClass = classOf[TopIOTransform]
@@ -26,19 +31,5 @@ object TopIO {
       }
     ) foreach (annotate(_))
     io
-  }
-
-  def setIO[T <: Data](data: T, name: String): Unit = {
-    data <> DontCare
-    Seq(
-      new ChiselAnnotation with RunFirrtlTransform {
-        def toFirrtl = InnerIOAnnotation(data.toTarget, name)
-
-        def transformClass = classOf[TopIOTransform]
-      },
-      new ChiselAnnotation {
-        def toFirrtl = DontTouchAnnotation(data.toTarget)
-      }
-    ) foreach (annotate(_))
   }
 }
