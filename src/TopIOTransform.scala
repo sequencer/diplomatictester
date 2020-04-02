@@ -123,8 +123,9 @@ class TopIOTransform extends Transform {
           if (bottomModels.contains(moduleTarget)) {
             /** require all output IO is annotated, since whole module will be replaced. */
             val modulePorts = module.ports.map(p => Target.asTarget(moduleTarget)(WRef(p)) -> p).toMap
+            /** The signal annotated in diplomacy is a Wire not a Port. */
             val annotatedPorts = ioPairs.filter(p => modulePorts.keys.toSeq.contains(p._2._1)).map { case (name, (source, _)) => name -> source }
-            require((modulePorts.filter(_._2.direction == Output).keys.toSeq diff annotatedPorts.values.toSeq).isEmpty, s"IO of bottom Moudle ${moduleTarget.name} are not fully annotated.")
+            require((modulePorts.filter(_._2.direction == Output).keys.toSeq diff annotatedPorts.values.toSeq).isEmpty, s"IO of bottom Moudle ${moduleTarget.name} is not fully annotated.")
             val blocks = annotatedPorts.toSeq.map { case (name, rt) =>
               val p = modulePorts(rt)
               val pair = ioPairs.find(_._2._1 == rt).get
@@ -144,11 +145,16 @@ class TopIOTransform extends Transform {
               name -> WRef(Port(NoInfo, ioPairs(name)._2.ref, ioInfo(name)._2, ioInfo(name)._1))
             }.toMap
             /** get all sub-Module of this Module. */
-            val subModules = moduleInstanceMap(moduleTarget)
+            val subInstances = moduleInstanceMap(moduleTarget)
             /** all Ref to new ports. */
-            val instanceNewPorts: Map[String, WSubField] = subModules.flatMap { it =>
-              moduleNewPortsMap(it.moduleTarget).map(portName => portName -> WSubField(WRef(it.name), portName))
-            }.toMap
+            val instanceNewPorts: Map[String, WSubField] = moduleNewPortsMap.flatMap { case (mt, names) =>
+              subInstances.find(_.ofModuleTarget == mt) match {
+                case Some(it) =>
+                  names.map(portName => portName -> WSubField(WRef(it.name), portName))
+                case None =>
+                  Nil
+              }
+            }
             /** generate new connections. */
             val netConnections = ioRefMap.map { case (name, port) => Connect(NoInfo, port.copy(flow = flipFlow(resolveFlow(name))), instanceNewPorts(name).copy(flow = resolveFlow(name))) }.toSeq
             val m = module.asInstanceOf[Module]
@@ -162,14 +168,16 @@ class TopIOTransform extends Transform {
               name -> Port(NoInfo, name, flipDirection(ioInfo(name)._2), ioInfo(name)._1)
             }.toMap
             /** get all sub-Module of this Module. */
-            val subModules = moduleInstanceMap(moduleTarget)
+            val subInstances = moduleInstanceMap(moduleTarget)
             /** all Ref to new ports. */
-            val instanceNewPorts: Map[String, WSubField] = subModules.flatMap { it =>
-              moduleNewPortsMap.get(it.ofModuleTarget) match {
-                case Some(ports) => ports.map(portName => portName -> WSubField(WRef(it.name), portName))
-                case None => Nil
+            val instanceNewPorts: Map[String, WSubField] = moduleNewPortsMap.flatMap { case (mt, names) =>
+              subInstances.find(_.ofModuleTarget == mt) match {
+                case Some(it) =>
+                  names.map(portName => portName -> WSubField(WRef(it.name), portName))
+                case None =>
+                  Nil
               }
-            }.toMap
+            }
             val netConnections = newPorts.map { case (name, port) => Connect(NoInfo, instanceNewPorts(name).copy(flow = flipFlow(resolveFlow(name))), WRef(port).copy(flow = resolveFlow(name))) }.toSeq
             val m = module.asInstanceOf[Module]
             m.copy(ports = m.ports ++ newPorts.values, body = Block(m.body +: netConnections))
@@ -196,11 +204,12 @@ class TopIOTransform extends Transform {
       ResolveKinds,
       ResolveFlows,
       ExpandConnects,
+      FixFlows,
       InferTypes,
       ResolveKinds,
       ResolveFlows,
-      FixFlows,
-      CheckFlows
+      CheckFlows,
+      InferTypes
     )
     passes.foldLeft(circuit) { case (c: Circuit, p: Pass) => p.run(c) }
   }

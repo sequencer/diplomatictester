@@ -1,10 +1,8 @@
-package diplomatictester
-
 import chisel3._
 import chisel3.experimental._
 import firrtl.transforms.DontTouchAnnotation
 
-object TopIO {
+package object diplomatictester {
   /** @todo if possible to remove this name, using val Name for simpler API. */
   def getIO[T <: Data](data: T, name: String): T = {
     val io = IO(DataMirror.directionOf(data) match {
