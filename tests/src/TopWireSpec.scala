@@ -1,12 +1,11 @@
 package diplomatictester.tests
 
-import diplomatictester._
 import chisel3._
-import chisel3.experimental.DataMirror
 import chisel3.util._
-import chisel3.stage.ChiselGeneratorAnnotation
-import chisel3.util.experimental.BoringUtils
-import firrtl.options.TargetDirAnnotation
+import diplomatictester._
+import chiseltest._
+import chiseltest.internal.{VerilatorBackendAnnotation, WriteVcdAnnotation}
+import utest._
 
 /** Module to be wired to top. */
 class MonitorModule extends MultiIOModule {
@@ -31,10 +30,8 @@ class MiddleModule extends MultiIOModule {
   val o = IO(DecoupledIO(Bool()))
   val i = IO(Flipped(DecoupledIO(Bool())))
   val monitorInstance = Module(new MonitorModule)
-  val bufferInstance = Module(new BufferModule)
-  bufferInstance.i <> monitorInstance.o
-  o <> bufferInstance.o
   monitorInstance.i <> i
+  monitorInstance.o <> o
 }
 
 class InnerModule1 extends MultiIOModule {
@@ -48,12 +45,6 @@ class InnerModule1 extends MultiIOModule {
 }
 
 class Top extends MultiIOModule {
-  val bufferInstance = Module(new BufferModule)
-  val bi = IO(Flipped(DecoupledIO(Bool())))
-  val bo = IO(DecoupledIO(Bool()))
-  bufferInstance.i <> bi
-  bo <> bufferInstance.o
-
   val middleInstance = Module(new MiddleModule)
   val mi = IO(Flipped(DecoupledIO(Bool())))
   val mo = IO(DecoupledIO(Bool()))
@@ -63,9 +54,18 @@ class Top extends MultiIOModule {
   val monitorI = TopIO.getIO(middleInstance.monitorInstance.i, "monitorI")
 }
 
-object Test extends App {
-  (new chisel3.stage.ChiselStage).run(Seq(
-    ChiselGeneratorAnnotation(() => new Top),
-    TargetDirAnnotation("circuit")
-  ))
+object TopIOSpec extends ChiselUtestTester {
+  val tests: Tests = Tests {
+    test("wtf") {
+      testCircuit(new Top, Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { dut =>
+        dut.monitorO.initSource().setSinkClock(dut.clock)
+        dut.monitorO.enqueueNow(true.B)
+        parallel(
+          dut.monitorO.enqueueNow(false.B),
+          dut.mo.expectDequeueNow(true.B)
+        )
+        dut.mo.expectDequeueNow(false.B)
+      }
+    }
+  }
 }

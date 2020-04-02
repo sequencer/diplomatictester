@@ -4,6 +4,7 @@ import firrtl._
 import firrtl.analyses.InstanceGraph
 import firrtl.annotations._
 import firrtl.ir._
+import firrtl.Mappers._
 import firrtl.passes._
 import scala.collection.mutable
 
@@ -62,7 +63,7 @@ class TopIOTransform extends Transform {
       }
       }.toMap
     val bottomModels: Seq[ModuleTarget] = ioPairs.values.map(_._1.moduleTarget).toSeq
-    /** collect port information from entire circuit. */
+    /** collect port inner Module dir and type information from entire circuit. */
     val ioInfo: Map[String, (Type, Direction)] = state.circuit.modules.flatMap { m =>
       m.ports.flatMap {
         p: Port =>
@@ -73,6 +74,22 @@ class TopIOTransform extends Transform {
           }
       }
     }.toMap
+
+    def resolveFlow(name: String) = ioInfo(name)._2 match {
+      case Input => SourceFlow
+      case Output => SinkFlow
+    }
+
+    def flipDirection(dir: Direction) = dir match {
+      case Input => Output
+      case Output => Input
+    }
+
+    def flipFlow(flow: Flow) = flow match {
+      case SourceFlow => SinkFlow
+      case SinkFlow => SourceFlow
+    }
+
     /** each module on the boring path will add new ports */
     val moduleNewPortsMap: Map[ModuleTarget, Seq[String]] = {
       val m = mutable.Map[ModuleTarget, Seq[String]]()
@@ -102,21 +119,17 @@ class TopIOTransform extends Transform {
         /** [[ModuleTarget]] based on [[DefModule]]. */
         val moduleTarget: ModuleTarget = ModuleTarget(state.circuit.main, module.name)
         if (moduleNewPortsMap.contains(moduleTarget)) {
-          /*MonitorModule*/
           /** bottom module */
           if (bottomModels.contains(moduleTarget)) {
             /** require all output IO is annotated, since whole module will be replaced. */
             val modulePorts = module.ports.map(p => Target.asTarget(moduleTarget)(WRef(p)) -> p).toMap
-            val annotatedPorts = ioPairs.values.map(_._1).toSeq intersect modulePorts.keys.toSeq
-            require((modulePorts.filter(_._2.direction == Output).keys.toSeq diff annotatedPorts).isEmpty, s"IO of bottom Moudle ${moduleTarget.name} are not fully annotated.")
-            val blocks = annotatedPorts.map { rt =>
+            val annotatedPorts = ioPairs.filter(p => modulePorts.keys.toSeq.contains(p._2._1)).map { case (name, (source, _)) => name -> source }
+            require((modulePorts.filter(_._2.direction == Output).keys.toSeq diff annotatedPorts.values.toSeq).isEmpty, s"IO of bottom Moudle ${moduleTarget.name} are not fully annotated.")
+            val blocks = annotatedPorts.toSeq.map { case (name, rt) =>
               val p = modulePorts(rt)
               val pair = ioPairs.find(_._2._1 == rt).get
-              val newPort = Port(NoInfo, pair._1, p.direction match {
-                case Input => Output
-                case Output => Input
-              }, p.tpe)
-              val newConnect = Connect(NoInfo, WRef(newPort), WRef(p))
+              val newPort = Port(NoInfo, pair._1, flipDirection(ioInfo(name)._2), ioInfo(name)._1)
+              val newConnect = Connect(NoInfo, WRef(newPort).copy(flow = resolveFlow(name)), WRef(p).copy(flow = flipFlow(resolveFlow(name))))
               (newPort, newConnect)
             }
             Module(module.info, module.name, module.ports ++ blocks.map(_._1), Block(blocks.map(_._2)))
@@ -137,7 +150,7 @@ class TopIOTransform extends Transform {
               moduleNewPortsMap(it.moduleTarget).map(portName => portName -> WSubField(WRef(it.name), portName))
             }.toMap
             /** generate new connections. */
-            val netConnections = ioRefMap.map { case (name, port) => Connect(NoInfo, port, instanceNewPorts(name)) }.toSeq
+            val netConnections = ioRefMap.map { case (name, port) => Connect(NoInfo, port.copy(flow = flipFlow(resolveFlow(name))), instanceNewPorts(name).copy(flow = resolveFlow(name))) }.toSeq
             val m = module.asInstanceOf[Module]
             m.copy(body = Block(m.body +: netConnections))
           }
@@ -146,7 +159,7 @@ class TopIOTransform extends Transform {
           else {
             /** all Module IO Refs. */
             val newPorts: Map[String, Port] = moduleNewPortsMap(moduleTarget).map { name =>
-              name -> Port(NoInfo, name, ioInfo(name)._2, ioInfo(name)._1)
+              name -> Port(NoInfo, name, flipDirection(ioInfo(name)._2), ioInfo(name)._1)
             }.toMap
             /** get all sub-Module of this Module. */
             val subModules = moduleInstanceMap(moduleTarget)
@@ -157,7 +170,7 @@ class TopIOTransform extends Transform {
                 case None => Nil
               }
             }.toMap
-            val netConnections = newPorts.map { case (name, port) => Connect(NoInfo, WRef(port), instanceNewPorts(name)) }.toSeq
+            val netConnections = newPorts.map { case (name, port) => Connect(NoInfo, instanceNewPorts(name).copy(flow = flipFlow(resolveFlow(name))), WRef(port).copy(flow = resolveFlow(name))) }.toSeq
             val m = module.asInstanceOf[Module]
             m.copy(ports = m.ports ++ newPorts.values, body = Block(m.body +: netConnections))
           }
@@ -185,8 +198,29 @@ class TopIOTransform extends Transform {
       ExpandConnects,
       InferTypes,
       ResolveKinds,
-      ResolveFlows
+      ResolveFlows,
+      FixFlows,
+      CheckFlows
     )
     passes.foldLeft(circuit) { case (c: Circuit, p: Pass) => p.run(c) }
+  }
+}
+
+object FixIOFlow extends Pass {
+  def run(c: Circuit): Circuit = {
+    def fixFlow(s: Statement): Statement = {
+      s match {
+        case Connect(info, loc, expr) =>
+          pprint.pprintln(Connect(info, loc, expr))
+          Connect(info, loc, expr)
+        case s => s map fixFlow
+      }
+    }
+
+    val modulesx = c.modules.map {
+      case (m: ExtModule) => m
+      case (m: Module) => m.copy(body = fixFlow(m.body))
+    }
+    Circuit(c.info, modulesx, c.main)
   }
 }
