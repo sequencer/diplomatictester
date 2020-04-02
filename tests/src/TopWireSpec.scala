@@ -58,7 +58,8 @@ object TopIOSpec extends ChiselUtestTester {
   val tests: Tests = Tests {
     test("wtf") {
       testCircuit(new Top, Seq(VerilatorBackendAnnotation, WriteVcdAnnotation)) { dut =>
-        dut.monitorO.initSource().setSinkClock(dut.clock)
+        dut.monitorO.initSource().setSourceClock(dut.clock)
+        dut.mo.initSink().setSinkClock(dut.clock)
         dut.monitorO.enqueueNow(true.B)
         parallel(
           dut.monitorO.enqueueNow(false.B),

@@ -4,8 +4,8 @@ import firrtl._
 import firrtl.analyses.InstanceGraph
 import firrtl.annotations._
 import firrtl.ir._
-import firrtl.Mappers._
 import firrtl.passes._
+
 import scala.collection.mutable
 
 /** Annotation to export IO to Top, driven by external module or testers. */
@@ -203,24 +203,5 @@ class TopIOTransform extends Transform {
       CheckFlows
     )
     passes.foldLeft(circuit) { case (c: Circuit, p: Pass) => p.run(c) }
-  }
-}
-
-object FixIOFlow extends Pass {
-  def run(c: Circuit): Circuit = {
-    def fixFlow(s: Statement): Statement = {
-      s match {
-        case Connect(info, loc, expr) =>
-          pprint.pprintln(Connect(info, loc, expr))
-          Connect(info, loc, expr)
-        case s => s map fixFlow
-      }
-    }
-
-    val modulesx = c.modules.map {
-      case (m: ExtModule) => m
-      case (m: Module) => m.copy(body = fixFlow(m.body))
-    }
-    Circuit(c.info, modulesx, c.main)
   }
 }

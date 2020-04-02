@@ -1,11 +1,10 @@
 package diplomatictester
 
+import firrtl.Mappers._
+import firrtl.Utils._
 import firrtl._
 import firrtl.ir._
 import firrtl.passes._
-import firrtl.Utils._
-import firrtl.Mappers._
-import pprint.pprintln
 
 import scala.collection.mutable
 
