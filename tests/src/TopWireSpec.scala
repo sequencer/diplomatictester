@@ -3,10 +3,12 @@ package diplomatictester.tests
 import chipsalliance.rocketchip.config._
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tilelink._
-import chisel3._
+import pprint.{pprintln => println}
 import chiseltest._
 import chiseltest.internal.{VerilatorBackendAnnotation, WriteVcdAnnotation}
 import diplomatictester._
+import chisel3._
+import chisel3.experimental.RecordLiterals._
 
 /** Create a TLFuzzer with tester2.
   * GetFull
@@ -43,7 +45,7 @@ object TLFuzzerTester extends App {
     case MonitorsEnabled => false
   })
   val lm = LazyModule(new TLFuzzRAM())
-  RawTester.test(lm.module, Seq(WriteVcdAnnotation, VerilatorBackendAnnotation)) {
+  RawTester.test(lm.module, Seq(WriteVcdAnnotation)) {
     c =>
       c.clock.setTimeout(0)
       val opcode = 4 // Get
@@ -55,16 +57,45 @@ object TLFuzzerTester extends App {
       val data = 0x100
       val corrupt = false
       c.clock.step(10)
-      println(c.monitor.elements)
-      val tlBundle = c.monitor.elements("out").asTypeOf(lm.fuzzer.node.out.head._1.cloneType)
-      tlBundle.a.bits.opcode.poke(opcode.U)
-      tlBundle.a.bits.param.poke(param.U)
-      tlBundle.a.bits.size.poke(size.U)
-      tlBundle.a.bits.source.poke(source.U)
-      tlBundle.a.bits.address.poke(address.U)
-      tlBundle.a.bits.mask.poke(mask.U)
-      tlBundle.a.bits.data.poke(data.U)
-      tlBundle.a.bits.corrupt.poke(corrupt.B)
+      /** no [[TLEdgeIn]], since it only has out.
+        * [[TLEdgeOut]] only has only one [[TLEdgeParameters]]:
+        * client is:
+        * [[TLMasterPortParameters]],
+        * manager is:
+        * [[TLSlavePortParameters]]
+        * */
+      val edges: Edges[TLEdgeIn, TLEdgeOut] = lm.fuzzer.node.edges
+      val outBundleParameter: TLBundleParameters = edges.out.head.bundle
+      val outBundle: TLBundle = TLBundle(outBundleParameter)
+      c.monitor.peek()
+      val aData = outBundle.a.bits.Lit(
+        _.opcode -> opcode.U,
+        _.param -> param.U,
+        _.size -> size.U,
+        _.mask -> mask.U,
+        _.source -> source.U,
+        _.address -> address.U,
+        _.data -> data.U,
+        _.corrupt -> corrupt.B
+      )
+      val monitorLit = chiselTypeOf(c.monitor).Lit {
+        _.elements("out").asInstanceOf[TLBundle] -> outBundle.Lit(bundle =>
+          bundle.a -> bundle.a.Lit(
+            _.bits -> aData,
+            _.ready -> true.B,
+            _.valid -> false.B
+          )
+        )
+      }
+      println(monitorLit)
+      //      tlBundle.a.bits.opcode.poke(opcode.U)
+      //      tlBundle.a.bits.param.poke(param.U)
+      //      tlBundle.a.bits.size.poke(size.U)
+      //      tlBundle.a.bits.source.poke(source.U)
+      //      tlBundle.a.bits.address.poke(address.U)
+      //      tlBundle.a.bits.mask.poke(mask.U)
+      //      tlBundle.a.bits.data.poke(data.U)
+      //      tlBundle.a.bits.corrupt.poke(corrupt.B)
       c.clock.step(1)
       c.clock.step(10)
   }
