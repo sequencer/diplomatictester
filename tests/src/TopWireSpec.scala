@@ -67,7 +67,6 @@ object TLFuzzerTester extends App {
       val edges: Edges[TLEdgeIn, TLEdgeOut] = lm.fuzzer.node.edges
       val outBundleParameter: TLBundleParameters = edges.out.head.bundle
       val outBundle: TLBundle = TLBundle(outBundleParameter)
-      c.monitor.peek()
       val aData = outBundle.a.bits.Lit(
         _.opcode -> opcode.U,
         _.param -> param.U,
@@ -78,24 +77,11 @@ object TLFuzzerTester extends App {
         _.data -> data.U,
         _.corrupt -> corrupt.B
       )
-      val monitorLit = chiselTypeOf(c.monitor).Lit {
-        _.elements("out").asInstanceOf[TLBundle] -> outBundle.Lit(bundle =>
-          bundle.a -> bundle.a.Lit(
-            _.bits -> aData,
-            _.ready -> true.B,
-            _.valid -> false.B
-          )
-        )
-      }
-      println(monitorLit)
-      //      tlBundle.a.bits.opcode.poke(opcode.U)
-      //      tlBundle.a.bits.param.poke(param.U)
-      //      tlBundle.a.bits.size.poke(size.U)
-      //      tlBundle.a.bits.source.poke(source.U)
-      //      tlBundle.a.bits.address.poke(address.U)
-      //      tlBundle.a.bits.mask.poke(mask.U)
-      //      tlBundle.a.bits.data.poke(data.U)
-      //      tlBundle.a.bits.corrupt.poke(corrupt.B)
+      val monitorLit = chiselTypeOf(c.monitor).Lit (
+        _.elements("out").asInstanceOf[TLBundle].a.bits -> aData,
+        _.elements("out").asInstanceOf[TLBundle].a.valid -> true.B
+      )
+      c.monitor.poke(monitorLit)
       c.clock.step(1)
       c.clock.step(10)
   }
