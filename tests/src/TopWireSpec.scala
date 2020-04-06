@@ -29,9 +29,8 @@ class TLFuzzRAM(implicit p: Parameters) extends LazyModule {
   val ram2 = LazyModule(new TLRAM(AddressSet(0, 0xff), beatBytes = 16))
   val xbar = LazyModule(new TLXbar)
   val fuzzer = LazyModule(new DummyFuzzer)
-  val ramModel = LazyModule(new TLRAMModel("TLFuzzRAM"))
 
-  xbar.node := ramModel.node := fuzzer.node
+  xbar.node := fuzzer.node
   ram2.node := TLFragmenter(16, 256) := xbar.node
   ram.node := TLFragmenter(4, 256) := TLWidthWidget(16) := xbar.node
 
@@ -77,12 +76,18 @@ object TLFuzzerTester extends App {
         _.data -> data.U,
         _.corrupt -> corrupt.B
       )
-      val monitorLit = chiselTypeOf(c.monitor).Lit (
+      c.monitor.poke(chiselTypeOf(c.monitor).Lit(
         _.elements("out").asInstanceOf[TLBundle].a.bits -> aData,
         _.elements("out").asInstanceOf[TLBundle].a.valid -> true.B
-      )
-      c.monitor.poke(monitorLit)
+      ))
+      c.monitor.poke(chiselTypeOf(c.monitor).Lit(
+        _.elements("out").asInstanceOf[TLBundle].d.ready -> true.B,
+      ))
       c.clock.step(1)
+      c.monitor.poke(chiselTypeOf(c.monitor).Lit(
+        _.elements("out").asInstanceOf[TLBundle].a.bits -> aData,
+        _.elements("out").asInstanceOf[TLBundle].a.valid -> false.B
+      ))
       c.clock.step(10)
   }
 }
