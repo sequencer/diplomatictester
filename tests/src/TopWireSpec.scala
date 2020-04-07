@@ -8,7 +8,7 @@ import chiseltest._
 import chiseltest.internal.{VerilatorBackendAnnotation, WriteVcdAnnotation}
 import diplomatictester._
 import chisel3._
-import chisel3.experimental.RecordLiterals._
+import chisel3.experimental.BundleLiterals._
 
 /** Create a TLFuzzer with tester2.
   * GetFull
@@ -55,14 +55,7 @@ object TLFuzzerTester extends App {
       val address = 0x100
       val data = 0x100
       val corrupt = false
-      c.clock.step(10)
-      /** no [[TLEdgeIn]], since it only has out.
-        * [[TLEdgeOut]] only has only one [[TLEdgeParameters]]:
-        * client is:
-        * [[TLMasterPortParameters]],
-        * manager is:
-        * [[TLSlavePortParameters]]
-        * */
+      c.clock.step(1)
       val edges: Edges[TLEdgeIn, TLEdgeOut] = lm.fuzzer.node.edges
       val outBundleParameter: TLBundleParameters = edges.out.head.bundle
       val outBundle: TLBundle = TLBundle(outBundleParameter)
@@ -78,14 +71,11 @@ object TLFuzzerTester extends App {
       )
       c.monitor.poke(chiselTypeOf(c.monitor).Lit(
         _.elements("out").asInstanceOf[TLBundle].a.bits -> aData,
-        _.elements("out").asInstanceOf[TLBundle].a.valid -> true.B
-      ))
-      c.monitor.poke(chiselTypeOf(c.monitor).Lit(
+        _.elements("out").asInstanceOf[TLBundle].a.valid -> true.B,
         _.elements("out").asInstanceOf[TLBundle].d.ready -> true.B,
       ))
       c.clock.step(1)
       c.monitor.poke(chiselTypeOf(c.monitor).Lit(
-        _.elements("out").asInstanceOf[TLBundle].a.bits -> aData,
         _.elements("out").asInstanceOf[TLBundle].a.valid -> false.B
       ))
       c.clock.step(10)
