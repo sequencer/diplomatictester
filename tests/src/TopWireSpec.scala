@@ -1,14 +1,14 @@
 package diplomatictester.tests
 
 import chipsalliance.rocketchip.config._
-import freechips.rocketchip.diplomacy._
-import freechips.rocketchip.tilelink._
-import pprint.{pprintln => println}
-import chiseltest._
-import chiseltest.internal.{VerilatorBackendAnnotation, WriteVcdAnnotation}
-import diplomatictester._
 import chisel3._
 import chisel3.experimental.BundleLiterals._
+import chiseltest._
+import chiseltest.internal.WriteVcdAnnotation
+import diplomatictester._
+import diplomatictester.TLEdgeLit._
+import freechips.rocketchip.diplomacy._
+import freechips.rocketchip.tilelink._
 
 /** Create a TLFuzzer with tester2.
   * GetFull
@@ -46,31 +46,19 @@ object TLFuzzerTester extends App {
   val lm = LazyModule(new TLFuzzRAM())
   RawTester.test(lm.module, Seq(WriteVcdAnnotation)) {
     c =>
-      c.clock.setTimeout(0)
-      val opcode = 4 // Get
-      val param = 0
+      val edges: Edges[TLEdgeIn, TLEdgeOut] = lm.fuzzer.node.edges
+      val outEdge = edges.out.head
       val size = 1
       val mask = 0xff
       val source = 0
       val address = 0x100
-      val data = 0x100
-      val corrupt = false
+      val data = 0xff
+
+      c.clock.setTimeout(0)
       c.clock.step(1)
-      val edges: Edges[TLEdgeIn, TLEdgeOut] = lm.fuzzer.node.edges
-      val outBundleParameter: TLBundleParameters = edges.out.head.bundle
-      val outBundle: TLBundle = TLBundle(outBundleParameter)
-      val aData = outBundle.a.bits.Lit(
-        _.opcode -> opcode.U,
-        _.param -> param.U,
-        _.size -> size.U,
-        _.mask -> mask.U,
-        _.source -> source.U,
-        _.address -> address.U,
-        _.data -> data.U,
-        _.corrupt -> corrupt.B
-      )
+
       c.monitor.poke(chiselTypeOf(c.monitor).Lit(
-        _.elements("out").asInstanceOf[TLBundle].a.bits -> aData,
+        _.elements("out").asInstanceOf[TLBundle].a.bits -> outEdge.PutFullData(size, source, address, mask, corrupt = false, data),
         _.elements("out").asInstanceOf[TLBundle].a.valid -> true.B,
         _.elements("out").asInstanceOf[TLBundle].d.ready -> true.B,
       ))
@@ -78,6 +66,15 @@ object TLFuzzerTester extends App {
       c.monitor.poke(chiselTypeOf(c.monitor).Lit(
         _.elements("out").asInstanceOf[TLBundle].a.valid -> false.B
       ))
-      c.clock.step(10)
+      c.clock.step(5)
+      c.monitor.poke(chiselTypeOf(c.monitor).Lit(
+        _.elements("out").asInstanceOf[TLBundle].a.bits -> outEdge.Get(size, source, address, mask),
+        _.elements("out").asInstanceOf[TLBundle].a.valid -> true.B,
+      ))
+      c.clock.step(1)
+      c.monitor.poke(chiselTypeOf(c.monitor).Lit(
+        _.elements("out").asInstanceOf[TLBundle].a.valid -> false.B
+      ))
+      c.clock.step(5)
   }
 }
