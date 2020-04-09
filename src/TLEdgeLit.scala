@@ -25,7 +25,7 @@ object TLEdgeLit {
     def Get(size: Int,
             source: Int,
             address: Int,
-            mask: Int): TLBundleA = (new TLBundleA(edge.bundle)).Lit(
+            mask: Int): TLBundleA = new TLBundleA(edge.bundle).Lit(
       _.opcode -> 4.U,
       _.param -> 0.U,
       _.size -> size.U,
@@ -58,7 +58,7 @@ object TLEdgeLit {
                     address: Int,
                     mask: Int,
                     corrupt: Boolean,
-                    data: BigInt): TLBundleA = (new TLBundleA(edge.bundle)).Lit(
+                    data: BigInt): TLBundleA = new TLBundleA(edge.bundle).Lit(
       _.opcode -> 0.U,
       _.param -> 0.U,
       _.size -> size.U,
@@ -160,37 +160,131 @@ object TLEdgeLit {
       * An [[ArithmeticData]] message is a request made by an agent that would like to access a particular
       * block of data in order to read-modify-write it by applying an arithmetic operation.
       *
+      * @param param   specifies the specific atomic operation to perform. It consists of [[ArithmeticDataParam]],
+      *                representing signed and unsigned integer maximum and minimum, as well as integer addition.
+      * @param size    is the arithmetic operand size and reflects both the size of this request’s data as well as
+      *                the [[AccessAckData]] response.
+      * @param source  is the ID of the master interface that is the target of this request. It is used to route the
+      *                request.
+      * @param address must be aligned to `size`.
+      * @param mask    provides the byte select lanes, in this case indicating which bytes to read-modify-write.
+      *                One bit of `mask` corresponds to one byte of data used in the atomic operation.
+      *                `size`, `address` and `mask` are required to correspond with one another (i.e., the `mask`
+      *                is also naturally aligned and fully set HIGH contiguously within that alignment).
+      * @param corrupt being HIGH indicates that masked data in this beat is corrupt.
+      * @param data    contains one of the arithmetic operands (the other is found at the target address). Any
+      *                byte of a data that is not masked by a mask is ignored and can take any value.
       * @note Supported protocol: TL-UH, TL-C
       * @todo add constraints check.
       **/
 
-    def ArithmeticData: TLBundleA = new TLBundleA(edge.bundle)
+    def ArithmeticData(param: ArithmeticDataParam,
+                       size: Int,
+                       source: Int,
+                       address: Int,
+                       mask: Int,
+                       corrupt: Boolean,
+                       data: BigInt): TLBundleA = new TLBundleA(edge.bundle).Lit(
+      _.opcode -> 2.U,
+      _.param -> param.U,
+      _.size -> size.U,
+      _.source -> source.U,
+      _.address -> address.U,
+      _.mask -> mask.U,
+      _.corrupt -> corrupt.B,
+      _.data -> data.U
+    )
 
     /**
       * A [[LogicalData]] message is a request made by an agent that would like to access a particular
       * block of data in order to read-modify-write it by applying a bitwise logical operation.
       *
+      * @param param   specifies the specific atomic bitwise logical operation to perform. It consists of [[LogicDataParam]],
+      *                representing bitwise logical xor, or, and, as well as a simple swap of the operands.
+      * @param size    is the operand size, in terms of log2(bytes). It reflects both the size of the this request’s
+      *                data as well as the size of the [[AccessAckData]] response.
+      * @param source  is the transaction identifier of the Master Agent issuing this request. It will be copied by
+      *                the Slave Agent to ensure the response is routed correctly.
+      * @param address must be aligned to `size`.
+      * @param mask    selects the byte lanes to read-modify-write (Section 4.6). One HIGH bit of a mask corresponds to
+      *                one byte of data used in the atomic operation. a size, a address and a mask are required to correspond
+      *                with one another. The HIGH bits of a mask must also be naturally aligned and contiguous within
+      *                that alignment.
+      * @param corrupt being HIGH indicates that masked data in this beat is corrupt.
+      * @param data    contains one of the logical operands (the other is found at the target address). Any byte of
+      *                a data that is not masked by a mask is ignored and can take any value.
       * @note Supported protocol: TL-UH, TL-C
       * @todo add constraints check.
       **/
-    def LogicalData: TLBundleA = new TLBundleA(edge.bundle)
+    def LogicalData(param: LogicDataParam,
+                    size: Int,
+                    source: Int,
+                    address: Int,
+                    mask: Int,
+                    corrupt: Boolean,
+                    data: BigInt): TLBundleA = new TLBundleA(edge.bundle).Lit(
+      _.opcode -> 3.U,
+      _.param -> param.U,
+      _.size -> size.U,
+      _.source -> source.U,
+      _.address -> address.U,
+      _.mask -> mask.U,
+      _.corrupt -> corrupt.B,
+      _.data -> data.U
+    )
 
     /**
       * A [[Intent]] message is a request made by an agent that would like to signal its future intention to
       * access a particular block of data.
       *
+      * @param param   species the specific intention being conveyed by this Hint operation. Note that its intended
+      *                effect applies to the slave interface and possibly agents further out in the hierarchy.
+      *                It consists of [[IntentParam]], representing prefetch-data-with-intent-to-read and
+      *                prefetch-data-with-intent-to-write.
+      * @param size    is the size of the memory to which this intention applies
+      * @param source  is the transaction identifier of the Master Agent issuing this request. It will be copied by the
+      *                Slave Agent to ensure the response is routed correctly
+      * @param address must be aligned to `size`.
+      * @param mask    indicates the bytes to which the intention applies. `size`, `address` and
+      *                `mask` are required to correspond with one another.
       * @note Supported protocol: TL-UH, TL-C
       * @todo add constraints check.
       **/
-    def Intent: TLBundleA = new TLBundleA(edge.bundle)
+    def Intent(param: IntentParam,
+               size: Int,
+               source: Int,
+               address: Int,
+               mask: Int): TLBundleA = new TLBundleA(edge.bundle).Lit(
+      _.opcode -> 5.U,
+      _.param -> param.U,
+      _.size -> size.U,
+      _.source -> source.U,
+      _.address -> address.U,
+      _.mask -> mask.U,
+      _.corrupt -> 0.U,
+    )
 
     /**
       * [[HintAck]] serves as an acknowledgement message for a Hint operation.
       *
+      * @param size   contains the size of the data that was hinted about, though this particular message contains
+      *               no data itself.
+      * @param source was saved from `source` in the request and is now used to route this response to the
+      *               correct destination。
+      * @param denied indicates that the slave did not process the hint。
       * @note Supported protocol: TL-UH, TL-C
       * @todo add constraints check.
       **/
-    def HintAck: TLBundleB = new TLBundleB(edge.bundle)
+    def HintAck(size: Int,
+                source: Int,
+                denied: Boolean): TLBundleD = new TLBundleD(edge.bundle).Lit(
+      _.opcode -> 2.U,
+      _.param -> 0.U,
+      _.size -> size.U,
+      _.source -> source.U,
+      _.denied -> denied.B,
+      _.corrupt -> 0.U,
+    )
 
     /**
       * An [[AcquireBlock]] message is a request message type used by a Master Agent with a cache to
@@ -201,7 +295,7 @@ object TLEdgeLit {
       * @note Supported protocol: TL-C
       * @todo add constraints check.
       **/
-    def AcquireBlock: TLBundleA = new TLBundleA(edge.bundle)
+    def AcquireBlock(): TLBundleA = new TLBundleA(edge.bundle)
 
     /**
       * An [[AcquirePerm]] message is a request message type used by a Master Agent with a cache
@@ -317,4 +411,42 @@ object TLEdgeLit {
     def ReleaseAck: TLBundleD = new TLBundleD(edge.bundle)
   }
 
+  type ArithmeticDataParam = Int
+
+  object ArithmeticDataParam {
+    /** Write the signed minimum of the two operands, and return the old value. */
+    val MIN: ArithmeticDataParam = 0
+    /** Write the signed maximum of the two operands, and return the old value. */
+    val MAX: ArithmeticDataParam = 1
+    /** Write the unsigned minimum of the two operands, and return the old value. */
+    val MINU: ArithmeticDataParam = 2
+    /** Write the unsigned maximum of the two operands, and return the old value. */
+    val MAXU: ArithmeticDataParam = 3
+    /** Write the sum of the two operands, and return the old value. */
+    val ADD: ArithmeticDataParam = 4
+  }
+
+  type LogicDataParam = Int
+
+  object LogicDataParam {
+    /** Bitwise logical xor the two operands, write the result, and return the old value. */
+    val XOR: LogicDataParam = 0
+    /** Bitwise logical or the two operands, write the result, and return the old value. */
+    val OR: LogicDataParam = 1
+    /** Bitwise logical and the two operands, write the result, and return the old value. */
+    val AND: LogicDataParam = 2
+    /** Swap the two operands and return the old value. */
+    val SWAP: LogicDataParam = 3
+  }
+
+  type IntentParam = Int
+
+  object IntentParam {
+    /** Issuing agent intends to read target data. */
+    val PrefetchRead: IntentParam = 0
+    /** Issuing agent intends to write target data. */
+    val PrefetchWrite: IntentParam = 1
+  }
+
 }
+
