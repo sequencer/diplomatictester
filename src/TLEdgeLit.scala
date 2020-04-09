@@ -261,7 +261,7 @@ object TLEdgeLit {
       _.source -> source.U,
       _.address -> address.U,
       _.mask -> mask.U,
-      _.corrupt -> 0.U,
+      _.corrupt -> false.B,
     )
 
     /**
@@ -283,7 +283,7 @@ object TLEdgeLit {
       _.size -> size.U,
       _.source -> source.U,
       _.denied -> denied.B,
-      _.corrupt -> 0.U,
+      _.corrupt -> false.B,
     )
 
     /**
@@ -295,7 +295,20 @@ object TLEdgeLit {
       * @note Supported protocol: TL-C
       * @todo add constraints check.
       **/
-    def AcquireBlock(): TLBundleA = new TLBundleA(edge.bundle)
+    def AcquireBlock(param: Permission,
+                     size: Int,
+                     source: Int,
+                     address: Int,
+                     mask: Int,
+                    ): TLBundleA = new TLBundleA(edge.bundle).Lit(
+      _.opcode -> 6.U,
+      _.param -> param.U,
+      _.size -> size.U,
+      _.source -> source.U,
+      _.address -> address.U,
+      _.mask -> mask.U,
+      _.corrupt -> false.B,
+    )
 
     /**
       * An [[AcquirePerm]] message is a request message type used by a Master Agent with a cache
@@ -307,7 +320,20 @@ object TLEdgeLit {
       * @note Supported protocol: TL-C
       * @todo add constraints check.
       **/
-    def AcquirePerm: TLBundleA = new TLBundleA(edge.bundle)
+    def AcquirePerm(param: Permission,
+                    size: Int,
+                    source: Int,
+                    address: Int,
+                    mask: Int,
+                   ): TLBundleA = new TLBundleA(edge.bundle).Lit(
+      _.opcode -> 7.U,
+      _.param -> param.U,
+      _.size -> size.U,
+      _.source -> source.U,
+      _.address -> address.U,
+      _.mask -> mask.U,
+      _.corrupt -> false.B,
+    )
 
     /**
       * A [[ProbeBlock]] message is a request message used by a Slave Agent to query or modify the
@@ -319,7 +345,20 @@ object TLEdgeLit {
       * @note Supported protocol: TL-C
       * @todo add constraints check.
       **/
-    def ProbeBlock: TLBundleB = new TLBundleB(edge.bundle)
+    def ProbeBlock(param: Permission,
+                   size: Int,
+                   source: Int,
+                   address: Int,
+                   mask: Int,
+                  ): TLBundleB = new TLBundleB(edge.bundle).Lit(
+      _.opcode -> 6.U,
+      _.param -> param.U,
+      _.size -> size.U,
+      _.source -> source.U,
+      _.address -> address.U,
+      _.mask -> mask.U,
+      _.corrupt -> false.B,
+    )
 
     /**
       * A [[ProbePerm]] message is a request message used by a Slave Agent to query or modify the
@@ -332,7 +371,19 @@ object TLEdgeLit {
       * @note Supported protocol: TL-C
       * @todo add constraints check.
       **/
-    def ProbePerm: TLBundleB = new TLBundleB(edge.bundle)
+    def ProbePerm(param: Permission,
+                  size: Int,
+                  source: Int,
+                  address: Int,
+                  mask: Int): TLBundleB = new TLBundleB(edge.bundle).Lit(
+      _.opcode -> 7.U,
+      _.param -> param.U,
+      _.size -> size.U,
+      _.source -> source.U,
+      _.address -> address.U,
+      _.mask -> mask.U,
+      _.corrupt -> false.B,
+    )
 
     /**
       * A [[ProbeAck]] message is a response message used by a Master Agent to acknowledge the receipt
@@ -341,7 +392,17 @@ object TLEdgeLit {
       * @note Supported protocol: TL-C
       * @todo add constraints check.
       **/
-    def ProbeAck: TLBundleC = new TLBundleC(edge.bundle)
+    def ProbeAck(param: Permission,
+                 size: Int,
+                 source: Int,
+                 address: Int): TLBundleC = new TLBundleC(edge.bundle).Lit(
+      _.opcode -> 4.U,
+      _.param -> param.U,
+      _.size -> size.U,
+      _.source -> source.U,
+      _.address -> address.U,
+      _.corrupt -> false.B,
+    )
 
     /**
       * A [[ProbeAckData]] message is a response message used by a Master Agent to acknowledge the
@@ -350,7 +411,20 @@ object TLEdgeLit {
       * @note Supported protocol: TL-C
       * @todo add constraints check.
       **/
-    def ProbeAckData: TLBundleC = new TLBundleC(edge.bundle)
+    def ProbeAckData(param: Permission,
+                     size: Int,
+                     source: Int,
+                     address: Int,
+                     corrupt: Boolean,
+                     data: BigInt): TLBundleC = new TLBundleC(edge.bundle).Lit(
+      _.opcode -> 5.U,
+      _.param -> param.U,
+      _.size -> size.U,
+      _.source -> source.U,
+      _.address -> address.U,
+      _.corrupt -> corrupt.B,
+      _.data -> data.B
+    )
 
     /**
       * A [[Grant]] message is both a response and a request message used by a Slave Agent to acknowledge
@@ -360,7 +434,20 @@ object TLEdgeLit {
       * @note Supported protocol: TL-C
       * @todo add constraints check.
       **/
-    def Grant: TLBundleD = new TLBundleD(edge.bundle)
+    def Grant(param: Permission,
+              size: Int,
+              source: Int,
+              sink: Int,
+              denied: Int,
+              corrupt: Boolean): TLBundleD = new TLBundleD(edge.bundle).Lit(
+      _.opcode -> 4.U,
+      _.param -> param.U,
+      _.size -> size.U,
+      _.source -> source.U,
+      _.sink -> sink.U,
+      _.denied -> denied.B,
+      _.corrupt -> corrupt.B,
+    )
 
     /**
       * A [[GrantData]] message is a both a response and a request message used by a Slave Agent to
@@ -370,7 +457,22 @@ object TLEdgeLit {
       * @note Supported protocol: TL-C
       * @todo add constraints check.
       **/
-    def GrantData: TLBundleD = new TLBundleD(edge.bundle)
+    def GrantData(param: Permission,
+                  size: Int,
+                  source: Int,
+                  sink: Int,
+                  denied: Int,
+                  corrupt: Boolean,
+                  data: BigInt): TLBundleD = new TLBundleD(edge.bundle).Lit(
+      _.opcode -> 4.U,
+      _.param -> param.U,
+      _.size -> size.U,
+      _.source -> source.U,
+      _.sink -> sink.U,
+      _.denied -> denied.B,
+      _.corrupt -> corrupt.B,
+      _.data -> data.U
+    )
 
     /**
       * The [[GrantAck]] response message is used by the Master Agent to provide a final acknowledgment
@@ -380,7 +482,9 @@ object TLEdgeLit {
       * @note Supported protocol: TL-C
       * @todo add constraints check.
       **/
-    def GrantAck: TLBundleE = new TLBundleE(edge.bundle)
+    def GrantAck(sink: Int): TLBundleE = new TLBundleE(edge.bundle).Lit(
+      _.sink -> sink.U
+    )
 
     /**
       * A [[Release]] message is a request message used by a Master Agent to voluntarily downgrade its
@@ -389,7 +493,17 @@ object TLEdgeLit {
       * @note Supported protocol: TL-C
       * @todo add constraints check.
       **/
-    def Release: TLBundleC = new TLBundleC(edge.bundle)
+    def Release(param: Permission,
+                size: Int,
+                source: Int,
+                address: Int): TLBundleC = new TLBundleC(edge.bundle).Lit(
+      _.opcode -> 6.U,
+      _.param -> param.U,
+      _.size -> size.U,
+      _.source -> source.U,
+      _.address -> address.U,
+      _.corrupt -> false.B
+    )
 
     /**
       * A [[ReleaseData]] message is a request message used by a Master Agent to voluntarily downgrade
@@ -398,7 +512,19 @@ object TLEdgeLit {
       * @note Supported protocol: TL-C
       * @todo add constraints check.
       **/
-    def ReleaseData: TLBundleC = new TLBundleC(edge.bundle)
+    def ReleaseData(param: Permission,
+                    size: Int,
+                    source: Int,
+                    address: Int,
+                    data: BigInt): TLBundleC = new TLBundleC(edge.bundle).Lit(
+      _.opcode -> 7.U,
+      _.param -> param.U,
+      _.size -> size.U,
+      _.source -> source.U,
+      _.address -> address.U,
+      _.corrupt -> false.B,
+      _.data -> data.B
+    )
 
     /**
       * A [[ReleaseAck]] message is a response message used by a Slave Agent to acknowledge the receipt
@@ -408,7 +534,15 @@ object TLEdgeLit {
       * @note Supported protocol: TL-C
       * @todo add constraints check.
       **/
-    def ReleaseAck: TLBundleD = new TLBundleD(edge.bundle)
+    def ReleaseAck(size: Int,
+                   source: Int): TLBundleD = new TLBundleD(edge.bundle).Lit(
+      _.opcode -> 6.U,
+      _.param -> 0.U,
+      _.size -> size.U,
+      _.source -> source.U,
+      _.denied -> false.B,
+      _.corrupt -> false.B
+    )
   }
 
   type ArithmeticDataParam = Int
@@ -448,5 +582,30 @@ object TLEdgeLit {
     val PrefetchWrite: IntentParam = 1
   }
 
+  type Permission = Int
+
+  object Cap {
+    val toT: Permission = 0
+    val toB: Permission = 1
+    val toN: Permission = 2
+  }
+
+  object Grow {
+    val NtoB: Permission = 0
+    val NtoT: Permission = 1
+    val BtoT: Permission = 2
+  }
+
+  object Prune {
+    val TtoB: Permission = 0
+    val TtoN: Permission = 1
+    val BtoN: Permission = 2
+  }
+
+  object Report {
+    val TtoT: Permission = 3
+    val BtoB: Permission = 3
+    val NtoN: Permission = 3
+  }
 }
 
