@@ -6,13 +6,38 @@ import chisel3.experimental.BundleLiterals._
 
 object TLEdgeLit {
 
-  implicit class AddTileLinkLit[T <: TLEdge](edge: T) {
+  /** A simple explanation to TileLink:
+    *
+    * TileLink has 5 channels:
+    * a master -> slave
+    * Transmits a request that an operation be performed on a specified address range, accessing or caching the data.
+    * implemented in [[AddTileLinkOutLit]]
+    * b master <- slave (TL-C only)
+    * Transmits a request that an operation be performed at an address cached by a master agent, accessing or writing back that cached data.
+    * implemented in [[AddTileLinkInLit]]
+    * c master -> slave (TL-C only)
+    * Transmits a data or acknowledgment message in response to a request.
+    * implemented in [[AddTileLinkOutLit]]
+    * d master <- slave
+    * Transmits a data response or acknowledgement message to the original requestor.
+    * implemented in [[AddTileLinkInLit]]
+    * e master -> slave (TL-C only)
+    * Transmits a nal acknowledgment of a cache block transfer from the original requestor, used for serialization.
+    * implemented in [[AddTileLinkOutLit]]
+    *
+    *
+    * architecture constraints:
+    *   1. acyclic
+    *   2. prioritization e > d > c > b > a
+    *
+    * */
+  implicit class AddTileLinkOutLit[T <: TLEdgeOut](edge: T) {
     /**
       * A [[Get]] message is a request made by an agent that would like to access a particular block
       * of data in order to read it.
       *
       * @param size    indicates the total amount of data the requesting agent wishes to read, in terms of log2(bytes).
-      *                a size represents the size of the resulting [[AccessAckData]] response message, not this particular [[Get]] message.
+      *                a size represents the size of the resulting [[AddTileLinkInLit.AccessAckData]] response message, not this particular [[Get]] message.
       *                In TL-UL, a size cannot be larger than the width of the physical data bus.
       * @param source  is the transaction identifier of the Master Agent issuing this request. It will be copied by
       *                the Slave Agent to ensure the response is routed correctly
@@ -93,7 +118,7 @@ object TLEdgeLit {
                        address: Int,
                        mask: Int,
                        corrupt: Boolean,
-                       data: BigInt): TLBundleB = new TLBundleB(edge.bundle).Lit(
+                       data: BigInt): TLBundleA = new TLBundleA(edge.bundle).Lit(
       _.opcode -> 1.U,
       _.param -> 0.U,
       _.size -> size.U,
@@ -104,57 +129,6 @@ object TLEdgeLit {
       _.data -> data.U
     )
 
-    /**
-      * [[AccessAck]] serves as a data-less acknowledgement message to the original requesting agent.
-      *
-      * @param size   contains the size of the data that was accessed, though this particular message contains
-      *               no data itself. In a request/response message pair, `size` and `size` of a channel must always correspond.
-      *               In TL-UL, d size cannot be larger than the width of the physical data bus.
-      * @param source is the ID the of the agent issuing this response message.
-      * @param denied indicates that the slave did not process the memory access.
-      * @note Supported protocol: TL-UL, TL-UH, TL-C
-      * @todo add constraints check.
-      **/
-    def AccessAck(size: Int,
-                  source: Int,
-                  denied: Boolean): TLBundleD = new TLBundleD(edge.bundle).Lit(
-      _.opcode -> 0.U,
-      _.param -> 0.U,
-      _.size -> size.U,
-      _.source -> source.U,
-      _.denied -> denied.B,
-      _.corrupt -> false.B
-    )
-
-    /**
-      * [[AccessAckData]] serves as an acknowledgement message including data to the original requesting
-      * agent.
-      *
-      * @param size    contains the size of the data that was accessed, which corresponds to the size of the
-      *                data being included in this particular message. In a request/response message pair, `size` and
-      *                `size` of a channel must always correspond. In TL-UL, `size` cannot be larger than the width of the physical
-      *                data bus.
-      * @param source  was saved from a source in the request and is now used to route this response to the
-      *                correct destination
-      * @param corrupt being HIGH indicates that masked data in this beat is corrupt.
-      * @param denied  indicates that the slave did not process the memory access. If denied is HIGH then `corrupt` must also be high.
-      * @param data    a contains the data that was accessed by the operation.
-      * @note Supported protocol: TL-UL, TL-UH, TL-C
-      * @todo add constraints check.
-      **/
-    def AccessAckData(size: Int,
-                      source: Int,
-                      denied: Boolean,
-                      corrupt: Boolean,
-                      data: BigInt): TLBundleD = new TLBundleD(edge.bundle).Lit(
-      _.opcode -> 1.U,
-      _.param -> 0.U,
-      _.size -> size.U,
-      _.source -> source.U,
-      _.denied -> denied.B,
-      _.corrupt -> corrupt.B,
-      _.data -> data.U
-    )
 
     /**
       * An [[ArithmeticData]] message is a request made by an agent that would like to access a particular
@@ -163,7 +137,7 @@ object TLEdgeLit {
       * @param param   specifies the specific atomic operation to perform. It consists of [[ArithmeticDataParam]],
       *                representing signed and unsigned integer maximum and minimum, as well as integer addition.
       * @param size    is the arithmetic operand size and reflects both the size of this request’s data as well as
-      *                the [[AccessAckData]] response.
+      *                the [[AddTileLinkInLit.AccessAckData]] response.
       * @param source  is the ID of the master interface that is the target of this request. It is used to route the
       *                request.
       * @param address must be aligned to `size`.
@@ -202,7 +176,7 @@ object TLEdgeLit {
       * @param param   specifies the specific atomic bitwise logical operation to perform. It consists of [[LogicDataParam]],
       *                representing bitwise logical xor, or, and, as well as a simple swap of the operands.
       * @param size    is the operand size, in terms of log2(bytes). It reflects both the size of the this request’s
-      *                data as well as the size of the [[AccessAckData]] response.
+      *                data as well as the size of the [[AddTileLinkInLit.AccessAckData]] response.
       * @param source  is the transaction identifier of the Master Agent issuing this request. It will be copied by
       *                the Slave Agent to ensure the response is routed correctly.
       * @param address must be aligned to `size`.
@@ -265,28 +239,6 @@ object TLEdgeLit {
     )
 
     /**
-      * [[HintAck]] serves as an acknowledgement message for a Hint operation.
-      *
-      * @param size   contains the size of the data that was hinted about, though this particular message contains
-      *               no data itself.
-      * @param source was saved from `source` in the request and is now used to route this response to the
-      *               correct destination。
-      * @param denied indicates that the slave did not process the hint。
-      * @note Supported protocol: TL-UH, TL-C
-      * @todo add constraints check.
-      **/
-    def HintAck(size: Int,
-                source: Int,
-                denied: Boolean): TLBundleD = new TLBundleD(edge.bundle).Lit(
-      _.opcode -> 2.U,
-      _.param -> 0.U,
-      _.size -> size.U,
-      _.source -> source.U,
-      _.denied -> denied.B,
-      _.corrupt -> false.B,
-    )
-
-    /**
       * An [[AcquireBlock]] message is a request message type used by a Master Agent with a cache to
       * obtain a copy of a block of data that it plans to cache locally. Master Agents can also use this
       * message type to upgrade the permissions they have on a block already in their possession (i.e.,
@@ -310,6 +262,33 @@ object TLEdgeLit {
       _.corrupt -> false.B,
     )
 
+    def AccessAckC(size: Int,
+                   source: Int,
+                   address: Int): TLBundleC = {
+      new TLBundleC(edge.bundle).Lit(
+        _.opcode -> 0.U,
+        _.param -> 0.U,
+        _.size -> size.U,
+        _.source -> source.U,
+        _.address -> address.U,
+        _.corrupt -> false.B
+      )
+    }
+
+    def AccessAckDataC(size: Int,
+                       source: Int,
+                       address: Int,
+                       corrupt: Boolean,
+                       data: BigInt): TLBundleC = new TLBundleC(edge.bundle).Lit(
+      _.opcode -> 1.U,
+      _.param -> 0.U,
+      _.size -> size.U,
+      _.source -> source.U,
+      _.address -> address.U,
+      _.corrupt -> corrupt.B,
+      _.data -> data.U
+    )
+
     /**
       * An [[AcquirePerm]] message is a request message type used by a Master Agent with a cache
       * to upgrade permissions on a block without supplying a copy of the data contained in the block.
@@ -326,56 +305,6 @@ object TLEdgeLit {
                     address: Int,
                     mask: Int,
                    ): TLBundleA = new TLBundleA(edge.bundle).Lit(
-      _.opcode -> 7.U,
-      _.param -> param.U,
-      _.size -> size.U,
-      _.source -> source.U,
-      _.address -> address.U,
-      _.mask -> mask.U,
-      _.corrupt -> false.B,
-    )
-
-    /**
-      * A [[ProbeBlock]] message is a request message used by a Slave Agent to query or modify the
-      * permissions of a cached copy of a data block stored by a particular Master Agent. A Slave Agent
-      * may revoke a Master Agent’s permissions on a cache block either in response to an Acquire from
-      * another master, or of its own volition. Table 8.6 shows all the fields of Channel B for this message
-      * type.
-      *
-      * @note Supported protocol: TL-C
-      * @todo add constraints check.
-      **/
-    def ProbeBlock(param: Permission,
-                   size: Int,
-                   source: Int,
-                   address: Int,
-                   mask: Int,
-                  ): TLBundleB = new TLBundleB(edge.bundle).Lit(
-      _.opcode -> 6.U,
-      _.param -> param.U,
-      _.size -> size.U,
-      _.source -> source.U,
-      _.address -> address.U,
-      _.mask -> mask.U,
-      _.corrupt -> false.B,
-    )
-
-    /**
-      * A [[ProbePerm]] message is a request message used by a Slave Agent to query or modify the
-      * permissions of a cached copy of a data block stored by a particular Master Agent. A Slave Agent
-      * may revoke a Master Agent’s permissions on a cache block either in response to an Acquire from
-      * another master, or of its own volition. [[ProbePerm]] must only be used in situations where no copy
-      * of the data is required to complete the initiating operation. The primary example is the case where
-      * the block is being acquired in order to be entirely overwritten.
-      *
-      * @note Supported protocol: TL-C
-      * @todo add constraints check.
-      **/
-    def ProbePerm(param: Permission,
-                  size: Int,
-                  source: Int,
-                  address: Int,
-                  mask: Int): TLBundleB = new TLBundleB(edge.bundle).Lit(
       _.opcode -> 7.U,
       _.param -> param.U,
       _.size -> size.U,
@@ -424,54 +353,6 @@ object TLEdgeLit {
       _.address -> address.U,
       _.corrupt -> corrupt.B,
       _.data -> data.B
-    )
-
-    /**
-      * A [[Grant]] message is both a response and a request message used by a Slave Agent to acknowledge
-      * the receipt of a Acquire and provide permissions to access the cache block to the original
-      * requesting Master Agent.
-      *
-      * @note Supported protocol: TL-C
-      * @todo add constraints check.
-      **/
-    def Grant(param: Permission,
-              size: Int,
-              source: Int,
-              sink: Int,
-              denied: Int,
-              corrupt: Boolean): TLBundleD = new TLBundleD(edge.bundle).Lit(
-      _.opcode -> 4.U,
-      _.param -> param.U,
-      _.size -> size.U,
-      _.source -> source.U,
-      _.sink -> sink.U,
-      _.denied -> denied.B,
-      _.corrupt -> corrupt.B,
-    )
-
-    /**
-      * A [[GrantData]] message is a both a response and a request message used by a Slave Agent to
-      * provide an acknowledgement along with a copy of the data block to the original requesting Master
-      * Agent.
-      *
-      * @note Supported protocol: TL-C
-      * @todo add constraints check.
-      **/
-    def GrantData(param: Permission,
-                  size: Int,
-                  source: Int,
-                  sink: Int,
-                  denied: Int,
-                  corrupt: Boolean,
-                  data: BigInt): TLBundleD = new TLBundleD(edge.bundle).Lit(
-      _.opcode -> 4.U,
-      _.param -> param.U,
-      _.size -> size.U,
-      _.source -> source.U,
-      _.sink -> sink.U,
-      _.denied -> denied.B,
-      _.corrupt -> corrupt.B,
-      _.data -> data.U
     )
 
     /**
@@ -526,11 +407,290 @@ object TLEdgeLit {
       _.data -> data.B
     )
 
+  }
+
+  implicit class AddTileLinkInLit[T <: TLEdgeIn](edge: T) {
+    /**
+      * [[AccessAck]] serves as a data-less acknowledgement message to the original requesting agent.
+      *
+      * @param size   contains the size of the data that was accessed, though this particular message contains
+      *               no data itself. In a request/response message pair, `size` and `size` of a channel must always correspond.
+      *               In TL-UL, d size cannot be larger than the width of the physical data bus.
+      * @param source is the ID the of the agent issuing this response message.
+      * @param denied indicates that the slave did not process the memory access.
+      * @note Supported protocol: TL-UL, TL-UH, TL-C
+      * @todo add constraints check.
+      **/
+    def AccessAck(size: Int,
+                  source: Int,
+                  denied: Boolean): TLBundleD = new TLBundleD(edge.bundle).Lit(
+      _.opcode -> 0.U,
+      _.param -> 0.U,
+      _.size -> size.U,
+      _.source -> source.U,
+      _.denied -> denied.B,
+      _.corrupt -> false.B
+    )
+
+    /**
+      * [[AccessAckData]] serves as an acknowledgement message including data to the original requesting
+      * agent.
+      *
+      * @param size    contains the size of the data that was accessed, which corresponds to the size of the
+      *                data being included in this particular message. In a request/response message pair, `size` and
+      *                `size` of a channel must always correspond. In TL-UL, `size` cannot be larger than the width of the physical
+      *                data bus.
+      * @param source  was saved from a source in the request and is now used to route this response to the
+      *                correct destination
+      * @param corrupt being HIGH indicates that masked data in this beat is corrupt.
+      * @param denied  indicates that the slave did not process the memory access. If denied is HIGH then `corrupt` must also be high.
+      * @param data    a contains the data that was accessed by the operation.
+      * @note Supported protocol: TL-UL, TL-UH, TL-C
+      * @todo add constraints check.
+      **/
+    def AccessAckData(size: Int,
+                      source: Int,
+                      denied: Boolean,
+                      corrupt: Boolean,
+                      data: BigInt): TLBundleD = new TLBundleD(edge.bundle).Lit(
+      _.opcode -> 1.U,
+      _.param -> 0.U,
+      _.size -> size.U,
+      _.source -> source.U,
+      _.denied -> denied.B,
+      _.corrupt -> corrupt.B,
+      _.data -> data.U
+    )
+
+    /**
+      * [[HintAck]] serves as an acknowledgement message for a Hint operation.
+      *
+      * @param size   contains the size of the data that was hinted about, though this particular message contains
+      *               no data itself.
+      * @param source was saved from `source` in the request and is now used to route this response to the
+      *               correct destination。
+      * @param denied indicates that the slave did not process the hint。
+      * @note Supported protocol: TL-UH, TL-C
+      * @todo add constraints check.
+      **/
+    def HintAck(size: Int,
+                source: Int,
+                denied: Boolean): TLBundleD = new TLBundleD(edge.bundle).Lit(
+      _.opcode -> 2.U,
+      _.param -> 0.U,
+      _.size -> size.U,
+      _.source -> source.U,
+      _.denied -> denied.B,
+      _.corrupt -> false.B,
+    )
+
+    /**
+      * [[Get]]
+      *
+      * @param size
+      * @param source
+      * @param address
+      * @param mask
+      * @note Supported protocol: TL-UH, TL-C
+      * @todo add constraints check.
+      **/
+    def Get(size: Int,
+            source: Int,
+            address: Int,
+            mask: Int): TLBundleB = new TLBundleB(edge.bundle).Lit(
+      _.opcode -> 4.U,
+      _.param -> 0.U,
+      _.size -> size.U,
+      _.source -> source.U,
+      _.address -> address.U,
+      _.mask -> mask.U,
+      _.corrupt -> false.B
+    )
+
+    /**
+      * [[PutFullData]]
+      *
+      * @param size
+      * @param source
+      * @param address
+      * @param mask
+      * @param corrupt
+      * @param data
+      * @note Supported protocol: TL-UH, TL-C
+      * @todo add constraints check.
+      **/
+    def PutFullData(size: Int,
+                    source: Int,
+                    address: Int,
+                    mask: Int,
+                    corrupt: Boolean,
+                    data: BigInt): TLBundleB = new TLBundleB(edge.bundle).Lit(
+      _.opcode -> 0.U,
+      _.param -> 0.U,
+      _.size -> size.U,
+      _.source -> source.U,
+      _.address -> address.U,
+      _.mask -> mask.U,
+      _.corrupt -> corrupt.B,
+      _.data -> data.U
+    )
+
+    /**
+      * [[PutPartialData]]
+      *
+      * @param size
+      * @param source
+      * @param address
+      * @param mask
+      * @param corrupt
+      * @param data
+      * @note Supported protocol: TL-UH, TL-C
+      * @todo add constraints check.
+      **/
+    def PutPartialData(size: Int,
+                       source: Int,
+                       address: Int,
+                       mask: Int,
+                       corrupt: Boolean,
+                       data: BigInt): TLBundleB = new TLBundleB(edge.bundle).Lit(
+      _.opcode -> 1.U,
+      _.param -> 0.U,
+      _.size -> size.U,
+      _.source -> source.U,
+      _.address -> address.U,
+      _.mask -> mask.U,
+      _.corrupt -> corrupt.B,
+      _.data -> data.U
+    )
+
+    /**
+      * A [[ProbeBlock]] message is a request message used by a Slave Agent to query or modify the
+      * permissions of a cached copy of a data block stored by a particular Master Agent. A Slave Agent
+      * may revoke a Master Agent’s permissions on a cache block either in response to an Acquire from
+      * another master, or of its own volition. Table 8.6 shows all the fields of Channel B for this message
+      * type.
+      *
+      * @param param
+      * @param size
+      * @param source
+      * @param address
+      * @param mask
+      * @note Supported protocol: TL-C
+      * @todo add constraints check.
+      **/
+    def ProbeBlock(param: Permission,
+                   size: Int,
+                   source: Int,
+                   address: Int,
+                   mask: Int,
+                  ): TLBundleB = new TLBundleB(edge.bundle).Lit(
+      _.opcode -> 6.U,
+      _.param -> param.U,
+      _.size -> size.U,
+      _.source -> source.U,
+      _.address -> address.U,
+      _.mask -> mask.U,
+      _.corrupt -> false.B,
+    )
+
+    /**
+      * A [[ProbePerm]] message is a request message used by a Slave Agent to query or modify the
+      * permissions of a cached copy of a data block stored by a particular Master Agent. A Slave Agent
+      * may revoke a Master Agent’s permissions on a cache block either in response to an Acquire from
+      * another master, or of its own volition. [[ProbePerm]] must only be used in situations where no copy
+      * of the data is required to complete the initiating operation. The primary example is the case where
+      * the block is being acquired in order to be entirely overwritten.
+      *
+      * @param param
+      * @param size
+      * @param source
+      * @param address
+      * @param mask
+      * @note Supported protocol: TL-C
+      * @todo add constraints check.
+      **/
+    def ProbePerm(param: Permission,
+                  size: Int,
+                  source: Int,
+                  address: Int,
+                  mask: Int): TLBundleB = new TLBundleB(edge.bundle).Lit(
+      _.opcode -> 7.U,
+      _.param -> param.U,
+      _.size -> size.U,
+      _.source -> source.U,
+      _.address -> address.U,
+      _.mask -> mask.U,
+      _.corrupt -> false.B,
+    )
+
+    /**
+      * A [[Grant]] message is both a response and a request message used by a Slave Agent to acknowledge
+      * the receipt of a Acquire and provide permissions to access the cache block to the original
+      * requesting Master Agent.
+      *
+      * @param param
+      * @param size
+      * @param source
+      * @param sink
+      * @param denied
+      * @param corrupt
+      * @note Supported protocol: TL-C
+      * @todo add constraints check.
+      **/
+    def Grant(param: Permission,
+              size: Int,
+              source: Int,
+              sink: Int,
+              denied: Int,
+              corrupt: Boolean): TLBundleD = new TLBundleD(edge.bundle).Lit(
+      _.opcode -> 4.U,
+      _.param -> param.U,
+      _.size -> size.U,
+      _.source -> source.U,
+      _.sink -> sink.U,
+      _.denied -> denied.B,
+      _.corrupt -> corrupt.B,
+    )
+
+    /**
+      * A [[GrantData]] message is a both a response and a request message used by a Slave Agent to
+      * provide an acknowledgement along with a copy of the data block to the original requesting Master
+      * Agent.
+      *
+      * @param param
+      * @param size
+      * @param source
+      * @param sink
+      * @param denied
+      * @param corrupt
+      * @param data
+      * @note Supported protocol: TL-C
+      * @todo add constraints check.
+      **/
+    def GrantData(param: Permission,
+                  size: Int,
+                  source: Int,
+                  sink: Int,
+                  denied: Int,
+                  corrupt: Boolean,
+                  data: BigInt): TLBundleD = new TLBundleD(edge.bundle).Lit(
+      _.opcode -> 4.U,
+      _.param -> param.U,
+      _.size -> size.U,
+      _.source -> source.U,
+      _.sink -> sink.U,
+      _.denied -> denied.B,
+      _.corrupt -> corrupt.B,
+      _.data -> data.U
+    )
+
     /**
       * A [[ReleaseAck]] message is a response message used by a Slave Agent to acknowledge the receipt
       * of a Release[Data], and is in turn used to ensure global serialization of operations by the Slave
       * Agent.
       *
+      * @param size
+      * @param source
       * @note Supported protocol: TL-C
       * @todo add constraints check.
       **/
@@ -607,5 +767,6 @@ object TLEdgeLit {
     val BtoB: Permission = 3
     val NtoN: Permission = 3
   }
+
 }
 
