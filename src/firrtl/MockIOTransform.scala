@@ -1,4 +1,4 @@
-package diplomatictester
+package diplomatictester.firrtl
 
 import firrtl._
 import firrtl.analyses.InstanceGraph
@@ -8,22 +8,7 @@ import firrtl.passes._
 
 import scala.collection.mutable
 
-/** Annotation to export IO to Top, driven by external module or testers. */
-case class InnerIOAnnotation(target: ReferenceTarget, name: String) extends SingleTargetAnnotation[ReferenceTarget] {
-  def duplicate(n: ReferenceTarget) = this.copy(target = n)
-}
-
-/** Annotate this IO to connect another annotated IO with [[InnerIOAnnotation]]. */
-case class TopIOAnnotation(target: ReferenceTarget, name: String) extends SingleTargetAnnotation[ReferenceTarget] {
-  def duplicate(n: ReferenceTarget) = this.copy(target = n)
-}
-
-/** firrtl need to decide:
-  * How [[TopIOTransform]] is injected to all Transforms
-  * [[inputForm]] and [[outputForm]] to decide the location of transform injection.
-  * and is deprecated after Dependency API added
-  * */
-class TopIOTransform extends Transform {
+class MockIOTransform extends Transform {
   def inputForm: CircuitForm = MidForm
 
   def outputForm: CircuitForm = MidForm

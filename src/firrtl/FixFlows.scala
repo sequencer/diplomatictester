@@ -1,4 +1,4 @@
-package diplomatictester
+package diplomatictester.firrtl
 
 import firrtl.Mappers._
 import firrtl.Utils._
