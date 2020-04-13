@@ -5,8 +5,6 @@ import firrtl.annotations._
 import firrtl.ir._
 import firrtl.passes._
 
-import scala.collection.immutable
-
 class DutIOTransform extends Transform {
   def inputForm: CircuitForm = HighForm
 
@@ -62,7 +60,7 @@ class DutIOTransform extends Transform {
         }
     }.toMap
     /** use annotated val name, not io name in dut. */
-    val topPorts = ioPairs.map(pair => pair._1 -> Port(NoInfo, pair._1, ioInfo(pair._1)._2, ioInfo(pair._1)._1)).toMap
+    val topPorts = ioPairs.map(pair => pair._1 -> Port(NoInfo, pair._1, ioInfo(pair._1)._2, ioInfo(pair._1)._1))
     val dutInstance = DefInstance(NoInfo, dutInstanceName, dutModule.name)
     val connects = ioPairs.map(pair => Connect(NoInfo, WSubField(WRef(dutInstanceName), pair._1), WRef(topPorts(pair._1)))).toSeq
     val topModule = Module(NoInfo, state.circuit.main, topPorts.values.toSeq,
@@ -72,8 +70,10 @@ class DutIOTransform extends Transform {
       case _: TopIOAnnotation => false
       case _ => true
     }
+    /** WTF??? */
+    pprint.pprintln(topModule.serialize)
+    topModule.mapPort { p => pprint.pprintln(p.serialize); p }
     val newCircuit = state.circuit.copy(modules = state.circuit.modules.filterNot(_.name == state.circuit.main) :+ topModule)
-    pprint.pprintln(ToWorkingIR.run(newCircuit).serialize, height = 100000)
     state.copy(fixupCircuit(newCircuit), annotations = annosx)
   }
 
