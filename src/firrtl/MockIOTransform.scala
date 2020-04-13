@@ -109,7 +109,7 @@ class MockIOTransform extends Transform {
             /** require all output IO is annotated, since whole module will be replaced. */
             val modulePorts = module.ports.map(p => Target.asTarget(moduleTarget)(WRef(p)) -> p).toMap
             /** The signal annotated in diplomacy is a Wire not a Port. */
-            val annotatedPorts = ioPairs.filter(p => modulePorts.keys.toSeq.contains(p._2._1)).map { case (name, (source, _)) => name -> source }
+            val annotatedPorts = ioPairs.filter(p => modulePorts.keys.toSeq.contains(p._2._1)).map { case (name, (source, _)) => name -> source }.toMap
             require((modulePorts.filter(_._2.direction == Output).keys.toSeq diff annotatedPorts.values.toSeq).isEmpty, s"IO of bottom Moudle ${moduleTarget.name} is not fully annotated.")
             val blocks = annotatedPorts.toSeq.map { case (name, rt) =>
               val p = modulePorts(rt)
@@ -185,8 +185,8 @@ class MockIOTransform extends Transform {
   /** Run passes to fix up the circuit of making the new connections  */
   private def fixupCircuit(circuit: Circuit): Circuit = {
     val passes = Seq(
-      InferTypes,
       ResolveKinds,
+      InferTypes,
       ResolveFlows,
       ExpandConnects,
       FixFlows,

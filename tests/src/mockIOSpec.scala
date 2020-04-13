@@ -16,7 +16,7 @@ class MockIOTest(implicit p: Parameters) extends TLFuzzRAM {
   }
 }
 
-object TLFuzzerTester extends App {
+object MockIOTester extends App {
   implicit val p = Parameters((site, here, up) => {
     case MonitorsEnabled => false
   })
@@ -34,22 +34,22 @@ object TLFuzzerTester extends App {
       c.clock.setTimeout(0)
       c.clock.step(1)
 
-      c.monitor.poke(chiselTypeOf(c.monitor).Lit(
+      c.monitor.pokePartial(chiselTypeOf(c.monitor).Lit(
         _.elements("out").asInstanceOf[TLBundle].a.bits -> outEdge.PutFullData(size, source, address, mask, corrupt = false, data),
         _.elements("out").asInstanceOf[TLBundle].a.valid -> true.B,
-        _.elements("out").asInstanceOf[TLBundle].d.ready -> true.B,
+        _.elements("out").asInstanceOf[TLBundle].d.ready -> true.B
       ))
       c.clock.step(1)
-      c.monitor.poke(chiselTypeOf(c.monitor).Lit(
+      c.monitor.pokePartial(chiselTypeOf(c.monitor).Lit(
         _.elements("out").asInstanceOf[TLBundle].a.valid -> false.B
       ))
       c.clock.step(5)
-      c.monitor.poke(chiselTypeOf(c.monitor).Lit(
+      c.monitor.pokePartial(chiselTypeOf(c.monitor).Lit(
         _.elements("out").asInstanceOf[TLBundle].a.bits -> outEdge.Get(size, source, address, mask),
-        _.elements("out").asInstanceOf[TLBundle].a.valid -> true.B,
+        _.elements("out").asInstanceOf[TLBundle].a.valid -> true.B
       ))
       c.clock.step(1)
-      c.monitor.poke(chiselTypeOf(c.monitor).Lit(
+      c.monitor.pokePartial(chiselTypeOf(c.monitor).Lit(
         _.elements("out").asInstanceOf[TLBundle].a.valid -> false.B
       ))
       c.clock.step(5)
