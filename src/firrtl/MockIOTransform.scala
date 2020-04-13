@@ -193,8 +193,7 @@ class MockIOTransform extends Transform {
       InferTypes,
       ResolveKinds,
       ResolveFlows,
-      CheckFlows,
-      InferTypes
+      CheckFlows
     )
     passes.foldLeft(circuit) { case (c: Circuit, p: Pass) => p.run(c) }
   }

@@ -6,9 +6,9 @@ import firrtl.ir._
 import firrtl.passes._
 
 class DutIOTransform extends Transform {
-  def inputForm: CircuitForm = HighForm
+  def inputForm: CircuitForm = MidForm
 
-  def outputForm: CircuitForm = HighForm
+  def outputForm: CircuitForm = MidForm
 
   def execute(state: CircuitState): CircuitState = {
     val topModuleTarget: ModuleTarget = ModuleTarget(state.circuit.main, state.circuit.main)
@@ -60,30 +60,35 @@ class DutIOTransform extends Transform {
         }
     }.toMap
     /** use annotated val name, not io name in dut. */
-    val topPorts = ioPairs.map(pair => pair._1 -> Port(NoInfo, pair._1, ioInfo(pair._1)._2, ioInfo(pair._1)._1))
+    val topPorts = ioPairs.map(pair => pair._1 -> Port(NoInfo, pair._2._2.name, ioInfo(pair._1)._2, ioInfo(pair._1)._1)).toMap
     val dutInstance = DefInstance(NoInfo, dutInstanceName, dutModule.name)
     val connects = ioPairs.map(pair => Connect(NoInfo, WSubField(WRef(dutInstanceName), pair._1), WRef(topPorts(pair._1)))).toSeq
-    val topModule = Module(NoInfo, state.circuit.main, topPorts.values.toSeq,
+    /** #1513 */
+    val topModule = Module(NoInfo, state.circuit.main, topPorts.values.toArray.toSeq,
       Block(dutInstance +: connects))
     val annosx = state.annotations.filter {
       case _: InnerIOAnnotation => false
       case _: TopIOAnnotation => false
       case _ => true
     }
-    /** WTF??? */
-    pprint.pprintln(topModule.serialize)
-    topModule.mapPort { p => pprint.pprintln(p.serialize); p }
     val newCircuit = state.circuit.copy(modules = state.circuit.modules.filterNot(_.name == state.circuit.main) :+ topModule)
-    state.copy(fixupCircuit(newCircuit), annotations = annosx)
+    val fixedCircuit = fixupCircuit(newCircuit)
+    state.copy(fixedCircuit, annotations = annosx)
   }
 
   /** Run passes to fix up the circuit of making the new connections  */
   private def fixupCircuit(circuit: Circuit): Circuit = {
     val passes = Seq(
       ToWorkingIR,
-      ResolveKinds,
       InferTypes,
-      FixFlows
+      ResolveKinds,
+      ResolveFlows,
+      ExpandConnects,
+      FixFlows,
+      InferTypes,
+      ResolveKinds,
+      ResolveFlows,
+      CheckFlows
     )
     passes.foldLeft(circuit) { case (c: Circuit, p: Pass) => p.run(c) }
   }

@@ -12,9 +12,8 @@ import freechips.rocketchip.tilelink._
 
 class DutIOTest(implicit p: Parameters) extends TLFuzzRAM {
   lazy val module = new LazyModuleImp(this) {
+    dutModule(ram.module)
     val dutAuto: AutoBundle = dutIO(ram.module.auto, "dutAuto")
-    val dutClock: Clock = dutIO(ram.module.clock, "dutClock")
-    val dutReset: Reset = dutIO(ram.module.reset, "dutReset")
   }
 }
 
@@ -25,8 +24,8 @@ object DutIOTester extends App {
   val lm = LazyModule(new DutIOTest())
   RawTester.test(lm.module, Seq(WriteVcdAnnotation)) {
     c =>
-      val edges: Edges[TLEdgeIn, TLEdgeOut] = lm.fuzzer.node.edges
-      val outEdge = edges.out.head
+      val edges: Edges[TLEdgeIn, TLEdgeOut] = lm.ram.node.edges
+      val inEdge = edges.in.head
       val size = 1
       val mask = 0xff
       val source = 0
@@ -35,25 +34,5 @@ object DutIOTester extends App {
 
       c.clock.setTimeout(0)
       c.clock.step(1)
-
-      c.dutAuto.pokePartial(chiselTypeOf(c.dutAuto).Lit(
-        _.elements("out").asInstanceOf[TLBundle].a.bits -> outEdge.PutFullData(size, source, address, mask, corrupt = false, data),
-        _.elements("out").asInstanceOf[TLBundle].a.valid -> true.B,
-        _.elements("out").asInstanceOf[TLBundle].d.ready -> true.B
-      ))
-      c.clock.step(1)
-      c.dutAuto.pokePartial(chiselTypeOf(c.dutAuto).Lit(
-        _.elements("out").asInstanceOf[TLBundle].a.valid -> false.B
-      ))
-      c.clock.step(5)
-      c.dutAuto.pokePartial(chiselTypeOf(c.dutAuto).Lit(
-        _.elements("out").asInstanceOf[TLBundle].a.bits -> outEdge.Get(size, source, address, mask),
-        _.elements("out").asInstanceOf[TLBundle].a.valid -> true.B
-      ))
-      c.clock.step(1)
-      c.dutAuto.pokePartial(chiselTypeOf(c.dutAuto).Lit(
-        _.elements("out").asInstanceOf[TLBundle].a.valid -> false.B
-      ))
-      c.clock.step(5)
   }
 }
