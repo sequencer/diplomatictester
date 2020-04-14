@@ -1,5 +1,6 @@
 package diplomatictester
 
+import Chisel.DecoupledIO
 import freechips.rocketchip.tilelink._
 import chisel3._
 import chisel3.experimental.BundleLiterals._
@@ -836,7 +837,7 @@ object TLEdgeLit {
       * @param data    contains one of the operands (the other is found at the target address). `data` in a byte that
       *                is unmasked is ignored and can take any value.
       * @note Supported protocol: TL-C
-      **/
+      * */
     def ArithmeticData(param: ArithmeticDataParam,
                        size: Int,
                        source: Int,
@@ -927,7 +928,7 @@ object TLEdgeLit {
       *                been saved from the request and is now being re-used to route this response to the correct
       *                destination.
       * @note Supported protocol: TL-C
-      **/
+      * */
     def HintAck(size: Int,
                 address: Int,
                 source: Int): TLBundleC = new TLBundleC(edge.bundle).Lit(
@@ -939,6 +940,66 @@ object TLEdgeLit {
       _.corrupt -> false.B,
     )
 
+  }
+
+  implicit class AddClear[T <: TLEdge](edge: T) {
+    /** clear bits of a channel.
+      * @todo BundleMap not clear
+      * */
+    def clear(tlBundle: DecoupledIO[TLBundleBase]): TLChannel = tlBundle.bits match {
+      case _: TLBundleA => clearA
+      case _: TLBundleB => clearB
+      case _: TLBundleC => clearC
+      case _: TLBundleD => clearD
+      case _: TLBundleE => clearE
+    }
+
+    private def clearA: TLBundleA = new TLBundleA(edge.bundle).Lit(
+      _.opcode -> 0.U,
+      _.param -> 0.U,
+      _.size -> 0.U,
+      _.source -> 0.U,
+      _.address -> 0.U,
+      _.mask -> 0.U,
+      _.data -> 0.U,
+      _.corrupt -> false.B
+    )
+
+    private def clearB: TLBundleB = new TLBundleB(edge.bundle).Lit(
+      _.opcode -> 0.U,
+      _.param -> 0.U,
+      _.size -> 0.U,
+      _.source -> 0.U,
+      _.address -> 0.U,
+      _.mask -> 0.U,
+      _.data -> 0.U,
+      _.corrupt -> false.B
+    )
+
+    private def clearC: TLBundleC = new TLBundleC(edge.bundle).Lit(
+      _.opcode -> 0.U,
+      _.param -> 0.U,
+      _.size -> 0.U,
+      _.source -> 0.U,
+      _.address -> 0.U,
+      _.data -> 0.U,
+      _.corrupt -> false.B
+    )
+
+    private def clearD: TLBundleD = new TLBundleD(edge.bundle).Lit(
+      _.opcode -> 0.U,
+      _.param -> 0.U,
+      _.size -> 0.U,
+      _.source -> 0.U,
+      _.sink -> 0.U,
+      _.denied -> false.B,
+      _.data -> 0.U,
+      _.corrupt -> false.B
+    )
+
+    private def clearE: TLBundleE = new TLBundleE(edge.bundle).Lit(
+      _.sink -> 0.U
+    )
   }
 
   type ArithmeticDataParam = Int

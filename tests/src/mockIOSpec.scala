@@ -1,5 +1,6 @@
 package diplomatictester.tests
 
+import Chisel.DecoupledIO
 import chipsalliance.rocketchip.config._
 import chisel3._
 import chisel3.experimental.BundleLiterals._
@@ -7,6 +8,7 @@ import chiseltest._
 import chiseltest.internal.WriteVcdAnnotation
 import diplomatictester._
 import diplomatictester.TLEdgeLit._
+import diplomatictester.TLHelper._
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tilelink._
 
@@ -31,27 +33,50 @@ object MockIOTester extends App {
       val address = 0x100
       val data = 0xff
 
-      c.clock.setTimeout(0)
-      c.clock.step(1)
+      val clock = c.clock
+      val a: DecoupledIO[TLBundleA] = c.monitor.elements("out").asInstanceOf[TLBundle].a
+      val aType = chiselTypeOf(a)
+      val d: DecoupledIO[TLBundleD] = c.monitor.elements("out").asInstanceOf[TLBundle].d
+      val dType = chiselTypeOf(d)
 
-      c.monitor.pokePartial(chiselTypeOf(c.monitor).Lit(
-        _.elements("out").asInstanceOf[TLBundle].a.bits -> outEdge.PutFullData(size, source, address, mask, corrupt = false, data),
-        _.elements("out").asInstanceOf[TLBundle].a.valid -> true.B,
-        _.elements("out").asInstanceOf[TLBundle].d.ready -> true.B
+      /** put data to ram. */
+      a.pokePartial(aType.Lit(
+        _.bits -> outEdge.PutFullData(size, source, address, mask, false, data),
+        _.valid -> true.B
       ))
-      c.clock.step(1)
-      c.monitor.pokePartial(chiselTypeOf(c.monitor).Lit(
-        _.elements("out").asInstanceOf[TLBundle].a.valid -> false.B
+      clock.step(1)
+      d.pokePartial(dType.Lit(
+        _.ready -> true.B
       ))
-      c.clock.step(5)
-      c.monitor.pokePartial(chiselTypeOf(c.monitor).Lit(
-        _.elements("out").asInstanceOf[TLBundle].a.bits -> outEdge.Get(size, source, address, mask),
-        _.elements("out").asInstanceOf[TLBundle].a.valid -> true.B
+      clock.step(1)
+
+      /** ack from ram. */
+      d.expectPartial(dType.Lit(
+        _.bits -> flip(outEdge).AccessAck(size, source, false),
+        _.valid -> true.B
       ))
-      c.clock.step(1)
-      c.monitor.pokePartial(chiselTypeOf(c.monitor).Lit(
-        _.elements("out").asInstanceOf[TLBundle].a.valid -> false.B
+      a.pokePartial(aType.Lit(
+        _.bits -> outEdge.clear(aType),
+        _.valid -> false.B
       ))
-      c.clock.step(5)
+      d.pokePartial(dType.Lit(
+        _.ready -> false.B
+      ))
+      clock.step(5)
+
+      /** get data from ram. */
+      a.pokePartial(aType.Lit(
+        _.bits -> outEdge.Get(size, source, address, mask),
+        _.valid -> true.B
+      ))
+      d.pokePartial(dType.Lit(
+        _.ready -> true.B
+      ))
+      clock.step(10)
+      /** @todo fixme: ack data from ram. */
+//      d.expectPartial(dType.Lit(
+//        _.bits -> flip(outEdge).AccessAckData(size, source, false, false, data),
+//        _.ready -> true.B
+//      ))
   }
 }

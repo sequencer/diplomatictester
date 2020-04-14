@@ -35,24 +35,49 @@ object DutIOTester extends App {
       val data = 0xff
 
       val clock = c.clock
-      val reset = c.reset
       val a: DecoupledIO[TLBundleA] = c.dutAuto.elements("in").asInstanceOf[TLBundle].a
       val aType = chiselTypeOf(a)
       val d: DecoupledIO[TLBundleD] = c.dutAuto.elements("in").asInstanceOf[TLBundle].d
-      val dType = chiselTypeOf(d)
-      /** start test now */
-      /** after 5 cycles let's start. */
-      clock.step(5)
+      val dType: DecoupledIO[TLBundleD] = chiselTypeOf(d)
+
       /** put data to ram. */
       a.pokePartial(aType.Lit(
-        _.bits -> flip(inEdge).PutFullData(size, source, address, mask, corrupt = false, data),
+        _.bits -> flip(inEdge).PutFullData(size, source, address, mask, false, data),
+        _.valid -> true.B
+      ))
+      clock.step(1)
+      d.pokePartial(dType.Lit(
+        _.ready -> true.B
+      ))
+      clock.step(1)
+
+      /** ack from ram. */
+      d.expectPartial(dType.Lit(
+        _.bits -> inEdge.AccessAck(size, source, false),
+        _.valid -> true.B
+      ))
+      a.pokePartial(aType.Lit(
+        _.bits -> inEdge.clear(aType),
+        _.valid -> false.B
+      ))
+      d.pokePartial(dType.Lit(
+        _.ready -> false.B
+      ))
+      clock.step(5)
+      /** get data from ram. */
+      a.pokePartial(aType.Lit(
+        _.bits -> flip(inEdge).Get(size, source, address, mask),
         _.valid -> true.B
       ))
       d.pokePartial(dType.Lit(
         _.ready -> true.B
       ))
-      /** after another 5 cycles. */
-      clock.step(5)
+      clock.step(1)
 
+      /** ack data from ram. */
+      d.expectPartial(dType.Lit(
+        _.bits -> inEdge.AccessAckData(size, source, false, false, data),
+        _.valid -> true.B
+      ))
   }
 }
