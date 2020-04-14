@@ -81,7 +81,11 @@ package object diplomatictester {
     ) foreach (annotate(_))
     io
   }
-
+  /**
+    * [[dutIO]] extract arbitrary module as DUT, mark all IO to this DUT, making external tester only this a small part of a big circuit.
+    *
+    * @param module module to be marked as DUT.
+    **/
   def dutModule[T <: MultiIOModule](module: T) = {
     val currentModule = Module.currentModule.get.asInstanceOf[MultiIOModule]
     Seq(
