@@ -53,10 +53,10 @@ package object diplomatictester {
     **/
   def dutIO[T <: Data](data: T, name: String): T = {
     val io = IO(DataMirror.directionOf(data) match {
-      case ActualDirection.Input => Output(data.cloneType)
-      case ActualDirection.Output => Input(data.cloneType)
-      case ActualDirection.Bidirectional(ActualDirection.Flipped) => data.cloneType
-      case ActualDirection.Bidirectional(ActualDirection.Default) => Flipped(data.cloneType)
+      case ActualDirection.Output => Output(data.cloneType)
+      case ActualDirection.Input => Input(data.cloneType)
+      case ActualDirection.Bidirectional(ActualDirection.Flipped) => Flipped(data.cloneType)
+      case ActualDirection.Bidirectional(ActualDirection.Default) => (data.cloneType)
       case _ => data.cloneType
     })
     io.suggestName(name)
