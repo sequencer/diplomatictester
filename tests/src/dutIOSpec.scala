@@ -8,7 +8,7 @@ import chiseltest._
 import chiseltest.internal.WriteVcdAnnotation
 import diplomatictester.TLEdgeLit._
 import diplomatictester._
-import diplomatictester.TLHelper._
+import diplomatictester.Utils._
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tilelink._
 
@@ -42,7 +42,7 @@ object DutIOTester extends App {
 
       /** put data to ram. */
       a.pokePartial(aType.Lit(
-        _.bits -> flip(inEdge).PutFullData(size, source, address, mask, false, data),
+        _.bits -> inEdge.flip.PutFullData(size, source, address, mask, false, data),
         _.valid -> true.B
       ))
       clock.step(1)
@@ -66,7 +66,7 @@ object DutIOTester extends App {
       clock.step(5)
       /** get data from ram. */
       a.pokePartial(aType.Lit(
-        _.bits -> flip(inEdge).Get(size, source, address, mask),
+        _.bits -> inEdge.flip.Get(size, source, address, mask),
         _.valid -> true.B
       ))
       d.pokePartial(dType.Lit(

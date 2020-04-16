@@ -8,7 +8,7 @@ import chiseltest._
 import chiseltest.internal.WriteVcdAnnotation
 import diplomatictester._
 import diplomatictester.TLEdgeLit._
-import diplomatictester.TLHelper._
+import diplomatictester.Utils._
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tilelink._
 
@@ -52,7 +52,7 @@ object MockIOTester extends App {
 
       /** ack from ram. */
       d.expectPartial(dType.Lit(
-        _.bits -> flip(outEdge).AccessAck(size, source, false),
+        _.bits -> outEdge.flip.AccessAck(size, source, false),
         _.valid -> true.B
       ))
       a.pokePartial(aType.Lit(
