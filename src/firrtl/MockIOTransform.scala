@@ -2,16 +2,32 @@ package diplomatictester.firrtl
 
 import firrtl._
 import firrtl.analyses.InstanceGraph
-import firrtl.annotations._
+import firrtl.annotations.{ReferenceTarget, _}
 import firrtl.ir._
-import firrtl.passes._
+import firrtl.options._
+import firrtl.passes.{ExpandConnects, _}
 
 import scala.collection.mutable
 
 class MockIOTransform extends Transform {
-  def inputForm: CircuitForm = MidForm
+  def inputForm: CircuitForm = UnknownForm
 
-  def outputForm: CircuitForm = MidForm
+  def outputForm: CircuitForm = UnknownForm
+
+  // we must make sure pre-MockIOTransform circuit has correct flows,
+  // since we will breaking flows and fix it later.
+  override val prerequisites = Seq(Dependency(CheckFlows))
+
+  /** @todo [[dependents]] not works on this Transform? */
+  override val dependents = Seq(
+    Dependency(FixFlows),
+    Dependency(RemoveUnreachableModules)
+  )
+
+  override def invalidates(a: Transform): Boolean = a match {
+    case ToWorkingIR | InferTypes => true
+    case _ => false
+  }
 
   def execute(state: CircuitState): CircuitState = {
     /** [[InstanceGraph]] to generate */
@@ -46,7 +62,7 @@ class MockIOTransform extends Transform {
       innerIOs.map { case (t, n) =>
         instanceGraph.findInstancesInHierarchy(t.moduleTarget.module).head.foldLeft("_TOPIO_")(_ + _.name + "_") + t.name -> (t, topIOMap(n))
       }
-      }.toMap
+    }.toMap
     val bottomModels: Seq[ModuleTarget] = ioPairs.values.map(_._1.moduleTarget).toSeq
     /** collect port inner Module dir and type information from entire circuit. */
     val ioInfo: Map[String, (Type, Direction)] = state.circuit.modules.flatMap { m =>
@@ -173,28 +189,11 @@ class MockIOTransform extends Transform {
         else module
     }
     val newCircuit = state.circuit.copy(modules = updatedModules)
-    val fixedCircuit = fixupCircuit(newCircuit)
     val annosx = state.annotations.filter {
       case _: InnerIOAnnotation => false
       case _: TopIOAnnotation => false
       case _ => true
     }
-    state.copy(circuit = fixedCircuit, annotations = annosx)
-  }
-
-  /** Run passes to fix up the circuit of making the new connections  */
-  private def fixupCircuit(circuit: Circuit): Circuit = {
-    val passes = Seq(
-      ResolveKinds,
-      InferTypes,
-      ResolveFlows,
-      ExpandConnects,
-      FixFlows,
-      InferTypes,
-      ResolveKinds,
-      ResolveFlows,
-      CheckFlows
-    )
-    passes.foldLeft(circuit) { case (c: Circuit, p: Pass) => p.run(c) }
+    state.copy(circuit = newCircuit, annotations = annosx)
   }
 }

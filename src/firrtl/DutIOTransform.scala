@@ -3,12 +3,27 @@ package diplomatictester.firrtl
 import firrtl._
 import firrtl.annotations._
 import firrtl.ir._
-import firrtl.passes._
+import firrtl.options._
+import firrtl.passes.{CheckFlows, ExpandConnects, InferTypes, ToWorkingIR}
 
 class DutIOTransform extends Transform {
-  def inputForm: CircuitForm = MidForm
+  def inputForm: CircuitForm = UnknownForm
 
-  def outputForm: CircuitForm = MidForm
+  def outputForm: CircuitForm = UnknownForm
+
+  // we must make sure pre-MockIOTransform circuit has correct flows,
+  // since we will breaking flows and fix it later.
+  override val prerequisites = Seq(Dependency(CheckFlows))
+
+  override val dependents = Seq(
+    Dependency(FixFlows),
+    Dependency(RemoveUnreachableModules)
+  )
+
+  override def invalidates(a: Transform): Boolean = a match {
+    case ToWorkingIR | ExpandConnects | InferTypes => true
+    case _ => false
+  }
 
   def execute(state: CircuitState): CircuitState = {
     val topModuleTarget: ModuleTarget = ModuleTarget(state.circuit.main, state.circuit.main)
@@ -67,29 +82,10 @@ class DutIOTransform extends Transform {
     val topModule = Module(NoInfo, state.circuit.main, topPorts.values.toArray.toSeq,
       Block(dutInstance +: connects))
     val annosx = state.annotations.filter {
-      case _: InnerIOAnnotation => false
-      case _: TopIOAnnotation => false
+      case _: InnerIOAnnotation | _: TopIOAnnotation => false
       case _ => true
     }
     val newCircuit = state.circuit.copy(modules = state.circuit.modules.filterNot(_.name == state.circuit.main) :+ topModule)
-    val fixedCircuit = fixupCircuit(newCircuit)
-    state.copy(fixedCircuit, annotations = annosx)
-  }
-
-  /** Run passes to fix up the circuit of making the new connections  */
-  private def fixupCircuit(circuit: Circuit): Circuit = {
-    val passes = Seq(
-      ToWorkingIR,
-      InferTypes,
-      ResolveKinds,
-      ResolveFlows,
-      ExpandConnects,
-      FixFlows,
-      InferTypes,
-      ResolveKinds,
-      ResolveFlows,
-      CheckFlows
-    )
-    passes.foldLeft(circuit) { case (c: Circuit, p: Pass) => p.run(c) }
+    state.copy(newCircuit, annotations = annosx)
   }
 }

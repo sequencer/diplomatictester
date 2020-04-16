@@ -11,6 +11,7 @@ import diplomatictester._
 import diplomatictester.Utils._
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tilelink._
+import logger._
 
 class DutIOTest(implicit p: Parameters) extends TLFuzzRAM {
   lazy val module = new LazyModuleImp(this) {
@@ -24,7 +25,7 @@ object DutIOTester extends App {
     case MonitorsEnabled => false
   })
   val lm = LazyModule(new DutIOTest())
-  RawTester.test(lm.module, Seq(WriteVcdAnnotation)) {
+  RawTester.test(lm.module, Seq(WriteVcdAnnotation,LogLevelAnnotation(LogLevel.Info))) {
     c =>
       val edges: Edges[TLEdgeIn, TLEdgeOut] = lm.ram.node.edges
       val inEdge: TLEdgeIn = edges.in.head

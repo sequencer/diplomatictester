@@ -11,6 +11,7 @@ import diplomatictester.TLEdgeLit._
 import diplomatictester.Utils._
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tilelink._
+import logger._
 
 class MockIOTest(implicit p: Parameters) extends TLFuzzRAM {
   lazy val module = new LazyModuleImp(this) {
@@ -23,7 +24,7 @@ object MockIOTester extends App {
     case MonitorsEnabled => false
   })
   val lm = LazyModule(new MockIOTest())
-  RawTester.test(lm.module, Seq(WriteVcdAnnotation)) {
+  RawTester.test(lm.module, Seq(WriteVcdAnnotation, LogLevelAnnotation(LogLevel.Info))) {
     c =>
       val edges: Edges[TLEdgeIn, TLEdgeOut] = lm.fuzzer.node.edges
       val outEdge = edges.out.head

@@ -4,11 +4,18 @@ import firrtl.Mappers._
 import firrtl.Utils._
 import firrtl._
 import firrtl.ir._
+import firrtl.options.{Dependency, DependencyAPI, PreservesAll}
 import firrtl.passes._
 
 import scala.collection.mutable
 
 object FixFlows extends Pass {
+  override val prerequisites = Seq(Dependency(ExpandConnects))
+
+  override val optionalPrerequisites = Seq(
+    Dependency[MockIOTransform]
+  )
+
   def run(c: Circuit): Circuit = {
     def fixStatementFlow(flows: mutable.Map[String, Flow])(statement: Statement): Statement = statement match {
       case Connect(info, loc, expr) =>
