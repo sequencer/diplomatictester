@@ -4,7 +4,8 @@ import firrtl._
 import firrtl.annotations._
 import firrtl.ir._
 import firrtl.options._
-import firrtl.passes.{CheckFlows, ExpandConnects, InferTypes, ToWorkingIR}
+import firrtl.passes.{CheckFlows, InferTypes, ResolveFlows, ToWorkingIR}
+import firrtl.transforms.DedupModules
 
 class DutIOTransform extends Transform {
   def inputForm: CircuitForm = UnknownForm
@@ -15,13 +16,14 @@ class DutIOTransform extends Transform {
   // since we will breaking flows and fix it later.
   override val prerequisites = Seq(Dependency(CheckFlows))
 
-  override val dependents = Seq(
-    Dependency(FixFlows),
-    Dependency(RemoveUnreachableModules)
+  override val dependents = super.dependents ++ Seq(
+    Dependency[FixFlows],
+    Dependency[RemoveUnreachableModules],
+    Dependency[DedupModules]
   )
 
   override def invalidates(a: Transform): Boolean = a match {
-    case ToWorkingIR | ExpandConnects | InferTypes => true
+    case ToWorkingIR | InferTypes | ResolveFlows => true
     case _ => false
   }
 

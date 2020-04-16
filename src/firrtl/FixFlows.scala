@@ -6,14 +6,19 @@ import firrtl._
 import firrtl.ir._
 import firrtl.options.{Dependency, DependencyAPI, PreservesAll}
 import firrtl.passes._
+import firrtl.transforms.DedupModules
 
 import scala.collection.mutable
 
-object FixFlows extends Pass {
+class FixFlows extends Pass with PreservesAll[Transform] {
   override val prerequisites = Seq(Dependency(ExpandConnects))
 
   override val optionalPrerequisites = Seq(
-    Dependency[MockIOTransform]
+    Dependency[MockIOTransform],
+    Dependency[DutIOTransform]
+  )
+  override val dependents = Seq(
+    Dependency[ExpandWhensAndCheck]
   )
 
   def run(c: Circuit): Circuit = {

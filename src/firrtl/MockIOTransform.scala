@@ -6,6 +6,7 @@ import firrtl.annotations.{ReferenceTarget, _}
 import firrtl.ir._
 import firrtl.options._
 import firrtl.passes.{ExpandConnects, _}
+import firrtl.transforms.DedupModules
 
 import scala.collection.mutable
 
@@ -18,10 +19,10 @@ class MockIOTransform extends Transform {
   // since we will breaking flows and fix it later.
   override val prerequisites = Seq(Dependency(CheckFlows))
 
-  /** @todo [[dependents]] not works on this Transform? */
-  override val dependents = Seq(
-    Dependency(FixFlows),
-    Dependency(RemoveUnreachableModules)
+  override val dependents = super.dependents ++ Seq(
+    Dependency[FixFlows],
+    Dependency[RemoveUnreachableModules],
+    Dependency[DedupModules]
   )
 
   override def invalidates(a: Transform): Boolean = a match {
