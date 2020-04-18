@@ -38,16 +38,6 @@ package object diplomatictester {
       },
       new ChiselAnnotation {
         def toFirrtl = DontTouchAnnotation(data.toTarget)
-      },
-      new ChiselAnnotation with RunFirrtlTransform {
-        case class Blah() extends _root_.firrtl.annotations.NoTargetAnnotation
-        def toFirrtl = Blah()
-        def transformClass = classOf[FixFlows]
-      },
-      new ChiselAnnotation with RunFirrtlTransform {
-        case class Blah() extends _root_.firrtl.annotations.NoTargetAnnotation
-        def toFirrtl = Blah()
-        def transformClass = classOf[RemoveUnreachableModules]
       }
     ) foreach (annotate(_))
     io
@@ -119,22 +109,7 @@ package object diplomatictester {
 
         def transformClass = classOf[DutIOTransform]
       },
-      new ChiselAnnotation {
-        def toFirrtl = DontTouchAnnotation(module.clock.toTarget)
-      },
-      new ChiselAnnotation {
-        def toFirrtl = DontTouchAnnotation(module.reset.toTarget)
-      },
-      new ChiselAnnotation with RunFirrtlTransform {
-        case class Blah() extends _root_.firrtl.annotations.NoTargetAnnotation
-        def toFirrtl = Blah()
-        def transformClass = classOf[FixFlows]
-      },
-      new ChiselAnnotation with RunFirrtlTransform {
-        case class Blah() extends _root_.firrtl.annotations.NoTargetAnnotation
-        def toFirrtl = Blah()
-        def transformClass = classOf[RemoveUnreachableModules]
-      }
+
     ) foreach (annotate(_))
   }
 }

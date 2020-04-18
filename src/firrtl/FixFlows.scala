@@ -4,22 +4,27 @@ import firrtl.Mappers._
 import firrtl.Utils._
 import firrtl._
 import firrtl.ir._
-import firrtl.options.{Dependency, DependencyAPI, PreservesAll}
+import firrtl.options._
 import firrtl.passes._
-import firrtl.transforms.DedupModules
 
 import scala.collection.mutable
 
-class FixFlows extends Pass with PreservesAll[Transform] {
-  override val prerequisites = Seq(Dependency(ExpandConnects))
+class FixFlows extends Pass {
+  override val prerequisites = Seq(
+    Dependency(ToWorkingIR),
+    Dependency(InferTypes),
+    Dependency(ResolveFlows),
+    Dependency(ExpandConnects)
+  )
 
-  override val optionalPrerequisites = Seq(
-    Dependency[MockIOTransform],
-    Dependency[DutIOTransform]
-  )
   override val dependents = Seq(
-    Dependency[ExpandWhensAndCheck]
+    Dependency(CheckFlows)
   )
+
+  override def invalidates(a: Transform): Boolean = a match {
+    case CheckFlows => true
+    case _ => false
+  }
 
   def run(c: Circuit): Circuit = {
     def fixStatementFlow(flows: mutable.Map[String, Flow])(statement: Statement): Statement = statement match {

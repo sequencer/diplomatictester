@@ -6,27 +6,21 @@ import firrtl.annotations.{ReferenceTarget, _}
 import firrtl.ir._
 import firrtl.options._
 import firrtl.passes.{ExpandConnects, _}
-import firrtl.transforms.DedupModules
 
 import scala.collection.mutable
 
-class MockIOTransform extends Transform {
+class GenerateMock extends Transform {
   def inputForm: CircuitForm = UnknownForm
 
   def outputForm: CircuitForm = UnknownForm
 
-  // we must make sure pre-MockIOTransform circuit has correct flows,
-  // since we will breaking flows and fix it later.
-  override val prerequisites = Seq(Dependency(CheckFlows))
-
-  override val dependents = super.dependents ++ Seq(
+  override val dependents = Seq(
     Dependency[FixFlows],
-    Dependency[RemoveUnreachableModules],
-    Dependency[DedupModules]
+    Dependency[RemoveUnreachableModules]
   )
 
   override def invalidates(a: Transform): Boolean = a match {
-    case ToWorkingIR | InferTypes => true
+    case ToWorkingIR | InferTypes | ResolveFlows | ExpandConnects => true
     case _ => false
   }
 
@@ -197,4 +191,12 @@ class MockIOTransform extends Transform {
     }
     state.copy(circuit = newCircuit, annotations = annosx)
   }
+}
+
+class MockIOTransform extends TransformBatch {
+  def transforms = Seq(
+    new GenerateMock,
+    new FixFlows,
+    new RemoveUnreachableModules
+  )
 }

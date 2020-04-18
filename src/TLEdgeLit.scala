@@ -230,7 +230,7 @@ object TLEdgeLit {
       _.source -> source.U,
       _.address -> address.U,
       _.mask -> mask.U,
-      _.corrupt -> false.B,
+      _.corrupt -> false.B
     )
 
     /* TL-C */
@@ -256,7 +256,7 @@ object TLEdgeLit {
                      size: Int,
                      source: Int,
                      address: Int,
-                     mask: Int,
+                     mask: Int
                     ): TLBundleA = new TLBundleA(edge.bundle).Lit(
       _.opcode -> 6.U,
       _.param -> param.U,
@@ -264,7 +264,7 @@ object TLEdgeLit {
       _.source -> source.U,
       _.address -> address.U,
       _.mask -> mask.U,
-      _.corrupt -> false.B,
+      _.corrupt -> false.B
     )
 
     /**
@@ -291,7 +291,7 @@ object TLEdgeLit {
                     size: Int,
                     source: Int,
                     address: Int,
-                    mask: Int,
+                    mask: Int
                    ): TLBundleA = new TLBundleA(edge.bundle).Lit(
       _.opcode -> 7.U,
       _.param -> param.U,
@@ -299,7 +299,7 @@ object TLEdgeLit {
       _.source -> source.U,
       _.address -> address.U,
       _.mask -> mask.U,
-      _.corrupt -> false.B,
+      _.corrupt -> false.B
     )
 
     /**
@@ -325,7 +325,7 @@ object TLEdgeLit {
       _.size -> size.U,
       _.source -> source.U,
       _.address -> address.U,
-      _.corrupt -> false.B,
+      _.corrupt -> false.B
     )
 
     /**
@@ -502,7 +502,7 @@ object TLEdgeLit {
       _.size -> size.U,
       _.source -> source.U,
       _.denied -> denied.B,
-      _.corrupt -> false.B,
+      _.corrupt -> false.B
     )
 
     /* TL-C */
@@ -531,7 +531,7 @@ object TLEdgeLit {
                    size: Int,
                    source: Int,
                    address: Int,
-                   mask: Int,
+                   mask: Int
                   ): TLBundleB = new TLBundleB(edge.bundle).Lit(
       _.opcode -> 6.U,
       _.param -> param.U,
@@ -539,7 +539,7 @@ object TLEdgeLit {
       _.source -> source.U,
       _.address -> address.U,
       _.mask -> mask.U,
-      _.corrupt -> false.B,
+      _.corrupt -> false.B
     )
 
     /**
@@ -574,7 +574,7 @@ object TLEdgeLit {
       _.source -> source.U,
       _.address -> address.U,
       _.mask -> mask.U,
-      _.corrupt -> false.B,
+      _.corrupt -> false.B
     )
 
     /**
@@ -608,7 +608,7 @@ object TLEdgeLit {
       _.source -> source.U,
       _.sink -> sink.U,
       _.denied -> denied.B,
-      _.corrupt -> false.B,
+      _.corrupt -> false.B
     )
 
     /**
@@ -916,7 +916,7 @@ object TLEdgeLit {
       _.source -> source.U,
       _.address -> address.U,
       _.mask -> mask.U,
-      _.corrupt -> false.B,
+      _.corrupt -> false.B
     )
 
     /** [[HintAck]] serves as an acknowledgement response for a Hint operation.
@@ -937,7 +937,7 @@ object TLEdgeLit {
       _.size -> size.U,
       _.address -> address.U,
       _.source -> source.U,
-      _.corrupt -> false.B,
+      _.corrupt -> false.B
     )
 
   }

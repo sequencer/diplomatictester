@@ -4,26 +4,21 @@ import firrtl._
 import firrtl.annotations._
 import firrtl.ir._
 import firrtl.options._
-import firrtl.passes.{CheckFlows, InferTypes, ResolveFlows, ToWorkingIR}
-import firrtl.transforms.DedupModules
+import firrtl.passes.{ExpandConnects, InferTypes, ResolveFlows, ToWorkingIR}
+import firrtl.stage.TransformManager
 
-class DutIOTransform extends Transform {
+class GenerateDut extends Transform {
   def inputForm: CircuitForm = UnknownForm
 
   def outputForm: CircuitForm = UnknownForm
 
-  // we must make sure pre-MockIOTransform circuit has correct flows,
-  // since we will breaking flows and fix it later.
-  override val prerequisites = Seq(Dependency(CheckFlows))
-
-  override val dependents = super.dependents ++ Seq(
+  override val dependents = Seq(
     Dependency[FixFlows],
-    Dependency[RemoveUnreachableModules],
-    Dependency[DedupModules]
+    Dependency[RemoveUnreachableModules]
   )
 
   override def invalidates(a: Transform): Boolean = a match {
-    case ToWorkingIR | InferTypes | ResolveFlows => true
+    case ToWorkingIR | InferTypes | ResolveFlows | ExpandConnects => true
     case _ => false
   }
 
@@ -90,4 +85,12 @@ class DutIOTransform extends Transform {
     val newCircuit = state.circuit.copy(modules = state.circuit.modules.filterNot(_.name == state.circuit.main) :+ topModule)
     state.copy(newCircuit, annotations = annosx)
   }
+}
+
+class DutIOTransform extends TransformBatch {
+  def transforms = Seq(
+    new GenerateDut,
+    new FixFlows,
+    new RemoveUnreachableModules
+  )
 }

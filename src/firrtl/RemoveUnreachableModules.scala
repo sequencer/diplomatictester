@@ -1,8 +1,8 @@
 package diplomatictester.firrtl
 
 import firrtl._
-import firrtl.annotations.NoTargetAnnotation
 import firrtl.options._
+import firrtl.transforms.DontTouchAnnotation
 
 class RemoveUnreachableModules extends Transform with PreservesAll[Transform] {
   override def inputForm: CircuitForm = UnknownForm
@@ -12,11 +12,16 @@ class RemoveUnreachableModules extends Transform with PreservesAll[Transform] {
   override val prerequisites = firrtl.stage.Forms.MinimalHighForm
 
   def execute(state: CircuitState): CircuitState = {
-    val c = state.circuit
-    val annosx = state.annotations
-    val newCircuit = c.copy(modules = c.modules.filter(module => new firrtl.analyses.InstanceGraph(c).reachableModules.map(_.value).contains(module.name)))
-    val targetAnnosx = annosx.filterNot(_.isInstanceOf[NoTargetAnnotation])
-    targetAnnosx.foreach(pprint.pprintln(_))
-    state.copy(circuit = newCircuit)
+    val circuit = state.circuit
+    val annotations = state.annotations
+    val newModules = circuit.modules.filter(module => new firrtl.analyses.InstanceGraph(circuit).reachableModules.map(_.value).contains(module.name))
+    val newAnnotations = annotations.filter {
+      case DontTouchAnnotation(target) => if (newModules.map(_.name).contains(target.name)) true else false
+      case _ => true
+    }
+    val newCircuit = circuit.copy(modules = newModules)
+//    println(newCircuit.serialize)
+//    newAnnotations.foreach(pprint.pprintln(_))
+    state.copy(circuit = newCircuit, annotations = newAnnotations)
   }
 }
