@@ -5,7 +5,7 @@ import chipsalliance.rocketchip.config._
 import chisel3._
 import chisel3.experimental.BundleLiterals._
 import chiseltest._
-import chiseltest.internal.WriteVcdAnnotation
+import chiseltest.internal.{VerilatorBackendAnnotation, WriteVcdAnnotation}
 import diplomatictester._
 import diplomatictester.TLEdgeLit._
 import diplomatictester.Utils._
@@ -24,7 +24,7 @@ object MockIOTester extends App {
     case MonitorsEnabled => false
   })
   val lm = LazyModule(new MockIOTest())
-  RawTester.test(lm.module, Seq(WriteVcdAnnotation, LogLevelAnnotation(LogLevel.Info))) {
+  RawTester.test(lm.module, Seq(WriteVcdAnnotation, LogLevelAnnotation(LogLevel.Info), VerilatorBackendAnnotation)) {
     c =>
       val edges: Edges[TLEdgeIn, TLEdgeOut] = lm.fuzzer.node.edges
       val outEdge = edges.out.head

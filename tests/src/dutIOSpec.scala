@@ -5,7 +5,7 @@ import chipsalliance.rocketchip.config._
 import chisel3._
 import chisel3.experimental.BundleLiterals._
 import chiseltest._
-import chiseltest.internal.WriteVcdAnnotation
+import chiseltest.internal.{VerilatorBackendAnnotation, WriteVcdAnnotation}
 import diplomatictester.TLEdgeLit._
 import diplomatictester._
 import diplomatictester.Utils._
@@ -25,7 +25,7 @@ object DutIOTester extends App {
     case MonitorsEnabled => false
   })
   val lm = LazyModule(new DutIOTest())
-  RawTester.test(lm.module, Seq(WriteVcdAnnotation,LogLevelAnnotation(LogLevel.Info))) {
+  RawTester.test(lm.module, Seq(WriteVcdAnnotation,LogLevelAnnotation(LogLevel.Info), VerilatorBackendAnnotation)) {
     c =>
       val edges: Edges[TLEdgeIn, TLEdgeOut] = lm.ram.node.edges
       val inEdge: TLEdgeIn = edges.in.head
