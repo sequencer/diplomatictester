@@ -199,4 +199,6 @@ class MockIOTransform extends TransformBatch {
     new FixFlows,
     new RemoveUnreachableModules
   )
+
+  override def dependents: Seq[Dependency[Transform]] = Seq(Dependency(RemoveAccesses))
 }

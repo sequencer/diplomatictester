@@ -4,7 +4,7 @@ import firrtl._
 import firrtl.annotations._
 import firrtl.ir._
 import firrtl.options._
-import firrtl.passes.{ExpandConnects, InferTypes, ResolveFlows, ToWorkingIR}
+import firrtl.passes.{ExpandConnects, InferTypes, RemoveAccesses, ResolveFlows, ToWorkingIR}
 import firrtl.stage.TransformManager
 
 class GenerateDut extends Transform {
@@ -93,4 +93,6 @@ class DutIOTransform extends TransformBatch {
     new FixFlows,
     new RemoveUnreachableModules
   )
+
+  override def dependents: Seq[Dependency[Transform]] = Seq(Dependency(RemoveAccesses))
 }

@@ -20,8 +20,6 @@ class RemoveUnreachableModules extends Transform with PreservesAll[Transform] {
       case _ => true
     }
     val newCircuit = circuit.copy(modules = newModules)
-//    println(newCircuit.serialize)
-//    newAnnotations.foreach(pprint.pprintln(_))
     state.copy(circuit = newCircuit, annotations = newAnnotations)
   }
 }
