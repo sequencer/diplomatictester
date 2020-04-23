@@ -1,5 +1,6 @@
 package diplomatictester
 
+import chisel3._
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tilelink._
 
@@ -30,4 +31,33 @@ object Utils {
       found.head
     }
   }
+
+  implicit class AutoBundleToTLBundle[T <: AutoBundle](data: T) {
+    def tlBundle(element: String): TLBundle = {
+      data.elements(element).asInstanceOf[TLBundle]
+    }
+  }
+
+  implicit class TLBundleHelper(data: TLBundle)(implicit clock: Clock) {
+    def clientA(edge: TLEdgeIn) = ClientA(data.a, edge.flip)
+
+    def clientB(edge: TLEdgeIn) = ClientB(data.b, edge.flip)
+
+    def clientC(edge: TLEdgeIn) = ClientC(data.c, edge.flip)
+
+    def clientD(edge: TLEdgeIn) = ClientD(data.d, edge.flip)
+
+    def clientE(edge: TLEdgeIn) = ClientE(data.e, edge.flip)
+
+    def managerA(edge: TLEdgeOut) = ManagerA(data.a, edge.flip)
+
+    def managerB(edge: TLEdgeOut) = ManagerB(data.b, edge.flip)
+
+    def managerC(edge: TLEdgeOut) = ManagerC(data.c, edge.flip)
+
+    def managerD(edge: TLEdgeOut) = ManagerD(data.d, edge.flip)
+
+    def managerE(edge: TLEdgeOut) = ManagerE(data.e, edge.flip)
+  }
+
 }
