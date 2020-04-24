@@ -24,60 +24,48 @@ object MockIOTester extends App {
     case MonitorsEnabled => false
   })
   val lm = LazyModule(new MockIOTest())
-  RawTester.test(lm.module, Seq(WriteVcdAnnotation, LogLevelAnnotation(LogLevel.Info), VerilatorBackendAnnotation)) {
+  RawTester.test(lm.module, Seq(WriteVcdAnnotation)) {
     c =>
       val edges: Edges[TLEdgeIn, TLEdgeOut] = lm.fuzzer.node.edges
-      val outEdge = edges.out.head
-      val size = 1
-      val mask = 0xff
+      val edgeIn: TLEdgeIn = edges.out.head.flip
+      val size = 2
+      val mask = 0xf
       val source = 0
-      val address = 0x100
-      val data = 0xff
+      val address = 0x150
+      val data = BigInt(0x12345678)
 
-      val clock = c.clock
-      val a: DecoupledIO[TLBundleA] = c.monitor.elements("out").asInstanceOf[TLBundle].a
-      val aType = chiselTypeOf(a)
-      val d: DecoupledIO[TLBundleD] = c.monitor.elements("out").asInstanceOf[TLBundle].d
-      val dType = chiselTypeOf(d)
+      implicit val clock = c.clock
+      val in = c.monitor.tlBundle("out")
+      val a = in.clientA(edgeIn)
+      val d = in.clientD(edgeIn)
 
       /** put data to ram. */
-      a.pokePartial(aType.Lit(
-        _.bits -> outEdge.PutFullData(size, source, address, mask, false, data),
-        _.valid -> true.B
-      ))
-      clock.step(1)
-      d.pokePartial(dType.Lit(
-        _.ready -> true.B
-      ))
-      clock.step(1)
+      a.PutFullData(Poke(
+        () => println("Putting data"),
+        () => println("Put data success")
+      ))(size, source, address, mask, false, data).join()
 
       /** ack from ram. */
-      d.expectPartial(dType.Lit(
-        _.bits -> outEdge.flip.AccessAck(size, source, false),
-        _.valid -> true.B
-      ))
-      a.pokePartial(aType.Lit(
-        _.bits -> outEdge.clear(aType),
-        _.valid -> false.B
-      ))
-      d.pokePartial(dType.Lit(
-        _.ready -> false.B
-      ))
-      clock.step(5)
+      d.AccessAck(Expect(
+        () => println("Waiting AccessAck from RAM."),
+        () => println(s"Got AccessAck")
+      ))(size, source, false).join()
+      clock.step()
 
       /** get data from ram. */
-      a.pokePartial(aType.Lit(
-        _.bits -> outEdge.Get(size, source, address, mask),
-        _.valid -> true.B
-      ))
-      d.pokePartial(dType.Lit(
-        _.ready -> true.B
-      ))
-      clock.step(10)
-      /** @todo fixme: ack data from ram. */
-//      d.expectPartial(dType.Lit(
-//        _.bits -> flip(outEdge).AccessAckData(size, source, false, false, data),
-//        _.ready -> true.B
-//      ))
+      a.Get(Poke(
+        () => println("Getting data from RAM."),
+        () => println("Get data success")
+      ))(size, source, address, mask).join()
+
+      /** ack data from ram.
+        * Notice width is 128, mask is 0xf,
+        * thus only last 32 bits are available,
+        * @todo we may need a BitPat expecting
+        * */
+      d.AccessAckData(Expect(
+        () => println("Waiting AccessAckData from RAM."),
+        () => println("Got AccessAckData")
+      ))(size, source, false, false, data | data << 32 | data << 64 | data << 96).join()
   }
 }

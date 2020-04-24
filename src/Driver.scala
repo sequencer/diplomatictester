@@ -12,16 +12,14 @@ import freechips.rocketchip.tilelink._
 trait TestFunc {
   def preHook: () => Unit
 
-  def execute[T <: TLBundleBase](driver: Driver[T])(litValue: T): Unit = {
-    preHook()
-    this match {
-      case Poke(_, _, timeout) => driver.poke(timeout)(litValue)
-      case Expect(_, _, timeout) => driver.expect(timeout)(litValue)
-    }
-    postHook()
-  }
-
   def postHook: () => Unit
+
+  def execute[T <: TLBundleBase](driver: Driver[T])(litValue: T): TesterThreadList = {
+    this match {
+      case Poke(_, _, timeout) => driver.poke(preHook, postHook)(timeout)(litValue)
+      case Expect(_, _, timeout) => driver.expect(preHook, postHook)(timeout)(litValue)
+    }
+  }
 }
 
 case class Poke(preHook: () => Unit = () => (), postHook: () => Unit = () => (), timeout: Int = -1) extends TestFunc
@@ -35,12 +33,13 @@ trait Driver[D <: TLBundleBase] {
   val channelType = chiselTypeOf(data)
 
   /** timeout = -1 means expect forever. */
-  def expect(timeout: BigInt)(bits: D): TesterThreadList = fork {
+  def expect(preHook: () => Unit, postHook: () => Unit)(timeout: BigInt)(bits: D): TesterThreadList = fork {
+    preHook()
     var limit = timeout + 1
     data.pokePartial(channelType.Lit(
       _.ready -> true.B
     ))
-    while (!data.peek().valid.litToBoolean) {
+    while (!data.valid.peek().litToBoolean) {
       clock.step()
       limit -= 1
       require(limit != 0, s"timeout in expecting ${data.pathName}")
@@ -48,32 +47,41 @@ trait Driver[D <: TLBundleBase] {
     data.expectPartial(channelType.Lit(
       _.bits -> bits
     ))
+    clock.step()
     data.pokePartial(channelType.Lit(
       _.ready -> false.B
     ))
+    postHook()
   }
 
-  def poke(timeout: BigInt)(bits: D): TesterThreadList = fork {
+  def poke(preHook: () => Unit, postHook: () => Unit)(timeout: BigInt)(bits: D): TesterThreadList = fork {
+    preHook()
     var limit = timeout + 1
+    var flag = false
     data.pokePartial(channelType.Lit(
       _.bits -> bits,
       _.valid -> true.B
     ))
-    while (!data.peek().ready.litToBoolean) {
+    do {
+      flag = !data.ready.peek().litToBoolean
       clock.step()
       limit -= 1
       require(limit != 0, s"timeout in poking ${data.pathName}")
-    }
-    clock.step()
+    } while (flag)
+    data.pokePartial(channelType.Lit(
+      _.valid -> false.B
+    ))
+    postHook()
   }
 }
 
 /** Inward TL channel direction. */
 trait Inward[D <: TLBundleBase] extends Driver[D] {
-  override def poke(timeout: BigInt)(bits: D): TesterThreadList = {
-    assert(cond = false, "You can not poke to a inward channel!")
-    fork()
-  }
+  override def poke(preHook: () => Unit, postHook: () => Unit)(timeout: BigInt)(bits: D): TesterThreadList =
+    fork {
+      preHook()
+      postHook()
+    }
 }
 
 /** Outward TL channel direction. */

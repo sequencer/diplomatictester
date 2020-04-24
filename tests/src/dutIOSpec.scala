@@ -12,6 +12,7 @@ import diplomatictester.Utils._
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tilelink._
 import logger._
+import chisel3.util.log2Ceil
 
 class DutIOTest(implicit p: Parameters) extends TLFuzzRAM {
   lazy val module = new LazyModuleImp(this) {
@@ -25,60 +26,44 @@ object DutIOTester extends App {
     case MonitorsEnabled => false
   })
   val lm = LazyModule(new DutIOTest())
-  RawTester.test(lm.module, Seq(WriteVcdAnnotation,LogLevelAnnotation(LogLevel.Info), VerilatorBackendAnnotation)) {
+  RawTester.test(lm.module, Seq(WriteVcdAnnotation)) {
     c =>
       val edges: Edges[TLEdgeIn, TLEdgeOut] = lm.ram.node.edges
-      val inEdge: TLEdgeIn = edges.in.head
-      val size = 1
-      val mask = 0xff
+      val edgeIn: TLEdgeIn = edges.in.head
+      val size = 2
+      val mask = 0xf
       val source = 0
-      val address = 0x100
-      val data = 0xff
+      val address = 0x150
+      val data = BigInt(0x12345678)
 
-      val clock = c.clock
-      val a: DecoupledIO[TLBundleA] = c.dutAuto.elements("in").asInstanceOf[TLBundle].a
-      val aType = chiselTypeOf(a)
-      val d: DecoupledIO[TLBundleD] = c.dutAuto.elements("in").asInstanceOf[TLBundle].d
-      val dType: DecoupledIO[TLBundleD] = chiselTypeOf(d)
+      implicit val clock = c.clock
+      val in = c.dutAuto.tlBundle("in")
+      val a = in.clientA(edgeIn)
+      val d = in.clientD(edgeIn)
 
       /** put data to ram. */
-      a.pokePartial(aType.Lit(
-        _.bits -> inEdge.flip.PutFullData(size, source, address, mask, false, data),
-        _.valid -> true.B
-      ))
-      clock.step(1)
-      d.pokePartial(dType.Lit(
-        _.ready -> true.B
-      ))
-      clock.step(1)
+      a.PutFullData(Poke(
+        () => println("Putting data"),
+        () => println("Put data success")
+      ))(size, source, address, mask, false, data).join()
 
       /** ack from ram. */
-      d.expectPartial(dType.Lit(
-        _.bits -> inEdge.AccessAck(size, source, false),
-        _.valid -> true.B
-      ))
-      a.pokePartial(aType.Lit(
-        _.bits -> inEdge.clear(aType),
-        _.valid -> false.B
-      ))
-      d.pokePartial(dType.Lit(
-        _.ready -> false.B
-      ))
-      clock.step(5)
+      d.AccessAck(Expect(
+        () => println("Waiting AccessAck from RAM."),
+        () => println(s"Got AccessAck")
+      ))(size, source, false).join()
+      clock.step()
+
       /** get data from ram. */
-      a.pokePartial(aType.Lit(
-        _.bits -> inEdge.flip.Get(size, source, address, mask),
-        _.valid -> true.B
-      ))
-      d.pokePartial(dType.Lit(
-        _.ready -> true.B
-      ))
-      clock.step(1)
+      a.Get(Poke(
+        () => println("Getting data from RAM."),
+        () => println("Get data success")
+      ))(size, source, address, mask).join()
 
       /** ack data from ram. */
-      d.expectPartial(dType.Lit(
-        _.bits -> inEdge.AccessAckData(size, source, false, false, data),
-        _.valid -> true.B
-      ))
+      d.AccessAckData(Expect(
+        () => println("Waiting AccessAckData from RAM."),
+        () => println("Got AccessAckData")
+      ))(size, source, false, false, data).join()
   }
 }
