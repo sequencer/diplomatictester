@@ -7,11 +7,7 @@ import firrtl.options._
 import firrtl.passes.{ExpandConnects, InferTypes, RemoveAccesses, ResolveFlows, ToWorkingIR}
 import firrtl.stage.TransformManager
 
-class GenerateDut extends Transform {
-  def inputForm: CircuitForm = UnknownForm
-
-  def outputForm: CircuitForm = UnknownForm
-
+class GenerateDut extends Transform with DependencyAPIMigration {
   override val dependents = Seq(
     Dependency[FixFlows],
     Dependency[RemoveUnreachableModules]
@@ -93,6 +89,8 @@ class DutIOTransform extends TransformBatch {
     new FixFlows,
     new RemoveUnreachableModules
   )
+
+  override def invalidates(a: Transform): Boolean = false
 
   override def dependents: Seq[Dependency[Transform]] = Seq(Dependency(RemoveAccesses))
 }

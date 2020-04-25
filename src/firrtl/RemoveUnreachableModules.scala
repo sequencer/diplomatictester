@@ -4,12 +4,10 @@ import firrtl._
 import firrtl.options._
 import firrtl.transforms.DontTouchAnnotation
 
-class RemoveUnreachableModules extends Transform with PreservesAll[Transform] {
-  override def inputForm: CircuitForm = UnknownForm
-
-  override def outputForm: CircuitForm = UnknownForm
-
+class RemoveUnreachableModules extends Transform with DependencyAPIMigration {
   override val prerequisites = firrtl.stage.Forms.MinimalHighForm
+
+  override def invalidates(a: Transform): Boolean = false
 
   def execute(state: CircuitState): CircuitState = {
     val circuit = state.circuit

@@ -9,11 +9,7 @@ import firrtl.passes.{ExpandConnects, _}
 
 import scala.collection.mutable
 
-class GenerateMock extends Transform {
-  def inputForm: CircuitForm = UnknownForm
-
-  def outputForm: CircuitForm = UnknownForm
-
+class GenerateMock extends Transform with DependencyAPIMigration {
   override val dependents = Seq(
     Dependency[FixFlows],
     Dependency[RemoveUnreachableModules]
@@ -133,8 +129,8 @@ class GenerateMock extends Transform {
           }
 
           /** top module
-            * connect [[TopIOAnnotation]] annotated [[ReferenceTarget]] to instance where have auto generated IO
-            * */
+           * connect [[TopIOAnnotation]] annotated [[ReferenceTarget]] to instance where have auto generated IO
+           * */
           else if (moduleTarget == topModel) {
             /** all Module IO Refs. */
             val ioRefMap: Map[String, WRef] = moduleNewPortsMap(moduleTarget).map { name =>
@@ -193,7 +189,7 @@ class GenerateMock extends Transform {
   }
 }
 
-class MockIOTransform extends TransformBatch {
+class MockIOTransform extends TransformBatch with PreservesAll[Transform] {
   def transforms = Seq(
     new GenerateMock,
     new FixFlows,
