@@ -8,7 +8,7 @@ import firrtl.passes.{ExpandConnects, InferTypes, RemoveAccesses, ResolveFlows, 
 import firrtl.stage.TransformManager
 
 class GenerateDut extends Transform with DependencyAPIMigration {
-  override val dependents = Seq(
+  override val optionalPrerequisiteOf = Seq(
     Dependency[FixFlows],
     Dependency[RemoveUnreachableModules]
   )
@@ -92,5 +92,5 @@ class DutIOTransform extends TransformBatch {
 
   override def invalidates(a: Transform): Boolean = false
 
-  override def dependents: Seq[Dependency[Transform]] = Seq(Dependency(RemoveAccesses))
+  override val optionalPrerequisiteOf: Seq[Dependency[Transform]] = Seq(Dependency(RemoveAccesses))
 }

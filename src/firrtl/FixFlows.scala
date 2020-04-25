@@ -17,7 +17,7 @@ class FixFlows extends Pass {
     Dependency(ExpandConnects)
   )
 
-  override val dependents = Seq(
+  override val optionalPrerequisiteOf = Seq(
     Dependency(CheckFlows)
   )
 

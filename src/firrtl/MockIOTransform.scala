@@ -10,7 +10,7 @@ import firrtl.passes.{ExpandConnects, _}
 import scala.collection.mutable
 
 class GenerateMock extends Transform with DependencyAPIMigration {
-  override val dependents = Seq(
+  override val optionalPrerequisiteOf = Seq(
     Dependency[FixFlows],
     Dependency[RemoveUnreachableModules]
   )
@@ -196,5 +196,5 @@ class MockIOTransform extends TransformBatch with PreservesAll[Transform] {
     new RemoveUnreachableModules
   )
 
-  override def dependents: Seq[Dependency[Transform]] = Seq(Dependency(RemoveAccesses))
+  override def optionalPrerequisiteOf: Seq[Dependency[Transform]] = Seq(Dependency(RemoveAccesses))
 }
