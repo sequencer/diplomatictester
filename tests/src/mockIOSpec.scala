@@ -1,14 +1,11 @@
 package diplomatictester.tests
 
-import Chisel.DecoupledIO
 import chipsalliance.rocketchip.config._
-import chisel3._
-import chisel3.experimental.BundleLiterals._
 import chiseltest._
-import chiseltest.internal.{VerilatorBackendAnnotation, WriteVcdAnnotation}
-import diplomatictester._
-import diplomatictester.TLEdgeLit._
+import chiseltest.stage.{WaveFormAnnotation, EnableCache, SimulatorBackendAnnotation}
 import diplomatictester.Utils._
+import firrtl.options.TargetDirAnnotation
+import diplomatictester._
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tilelink._
 import logger._
@@ -24,7 +21,12 @@ object MockIOTester extends App {
     case MonitorsEnabled => false
   })
   val lm = LazyModule(new MockIOTest())
-  RawTester.test(lm.module, Seq(WriteVcdAnnotation)) {
+  RawTester.test(lm.module, Seq(
+    new WaveFormAnnotation("vcd"),
+    LogLevelAnnotation(LogLevel.Info),
+    TargetDirAnnotation("./testrun"),
+    new EnableCache(true),
+    new SimulatorBackendAnnotation("verilator"))) {
     c =>
       val edges: Edges[TLEdgeIn, TLEdgeOut] = lm.fuzzer.node.edges
       val edgeIn: TLEdgeIn = edges.out.head.flip
@@ -61,8 +63,9 @@ object MockIOTester extends App {
       /** ack data from ram.
         * Notice width is 128, mask is 0xf,
         * thus only last 32 bits are available,
+        *
         * @todo we may need a BitPat expecting
-        * */
+        **/
       d.AccessAckData(Expect(
         () => println("Waiting AccessAckData from RAM."),
         () => println("Got AccessAckData")

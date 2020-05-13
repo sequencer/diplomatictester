@@ -1,18 +1,14 @@
 package diplomatictester.tests
 
-import Chisel.DecoupledIO
 import chipsalliance.rocketchip.config._
-import chisel3._
-import chisel3.experimental.BundleLiterals._
 import chiseltest._
-import chiseltest.internal.{VerilatorBackendAnnotation, WriteVcdAnnotation}
-import diplomatictester.TLEdgeLit._
-import diplomatictester._
+import chiseltest.stage.{WaveFormAnnotation, EnableCache, SimulatorBackendAnnotation}
 import diplomatictester.Utils._
+import firrtl.options.TargetDirAnnotation
+import diplomatictester._
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tilelink._
 import logger._
-import chisel3.util.log2Ceil
 
 class DutIOTest(implicit p: Parameters) extends TLFuzzRAM {
   lazy val module = new LazyModuleImp(this) {
@@ -26,7 +22,12 @@ object DutIOTester extends App {
     case MonitorsEnabled => false
   })
   val lm = LazyModule(new DutIOTest())
-  RawTester.test(lm.module, Seq(WriteVcdAnnotation, LogLevelAnnotation(LogLevel.Info))) {
+  RawTester.test(lm.module, Seq(
+    new WaveFormAnnotation("vcd"),
+    LogLevelAnnotation(LogLevel.Info),
+    TargetDirAnnotation("./testrun"),
+    new EnableCache(true),
+    new SimulatorBackendAnnotation("verilator"))) {
     c =>
       val edges: Edges[TLEdgeIn, TLEdgeOut] = lm.ram.node.edges
       val edgeIn: TLEdgeIn = edges.in.head
