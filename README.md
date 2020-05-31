@@ -4,6 +4,9 @@ For integration tests, you can replace arbitrary Chisel hardware modules with a 
 You can generate specific TileLink sequences based on the `BaseNode` of a `LazyModule`.
 You can also peek/poke `AutoBundle`s for `LazyModule`s.
 
+## Requirements
+Requires Chisel 3.3+ and associated dependencies.
+
 ## Unit Tests
 `diplomatictester.dutIO` can instantiate a top module only with a DUT explicitly marked with `dutIO`.
 

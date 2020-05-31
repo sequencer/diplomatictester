@@ -19,7 +19,8 @@ trait HasXsource211 extends ScalaModule {
 
 trait HasChisel3 extends ScalaModule {
   override def ivyDeps = Agg(
-    ivy"edu.berkeley.cs::chisel3:3.2.+"
+    ivy"edu.berkeley.cs::chisel3:3.2.+",
+    ivy"edu.berkeley.cs::chiseltest:0.2.1"
   )
   def repositories = super.repositories ++ Seq(
     MavenRepository("https://oss.sonatype.org/content/repositories/snapshots")
@@ -30,7 +31,7 @@ trait HasChiselTests extends CrossSbtModule  {
   object test extends Tests {
     override def ivyDeps = Agg(
       ivy"org.scalatest::scalatest:3.0.4",
-      ivy"edu.berkeley.cs::chisel-iotesters:1.3+"
+      ivy"edu.berkeley.cs::chiseltest:0.2.1"
     )
     def repositories = super.repositories ++ Seq(
       MavenRepository("https://oss.sonatype.org/content/repositories/snapshots")
@@ -51,9 +52,9 @@ class diplomatictesterCrossModule extends CrossSbtModule with HasChisel3 with Ha
 
   def crossScalaVersion = "2.12.10"
   def rocketModule: Option[PublishModule] = None
-  def ivyDeps = if(rocketModule.isEmpty) Agg(
+  def ivyDeps = T{ super.ivyDeps() ++ (if(rocketModule.isEmpty) Agg(
     ivy"edu.berkeley.cs::rocketchip:1.2-SNAPSHOT",
-  ) else Agg.empty[Dep]
+  ) else Agg.empty[Dep]) }
 }
 
 object diplomatictester extends mill.Cross[diplomatictesterCrossModule]("2.11.12", "2.12.11")
