@@ -47,6 +47,8 @@ trait HasMacroParadise extends ScalaModule {
 }
 
 class diplomatictesterCrossModule extends CrossSbtModule with HasChisel3 with HasChiselTests with HasXsource211 with HasMacroParadise {
+  override def millSourcePath = super.millSourcePath / ammonite.ops.up
+
   def crossScalaVersion = "2.12.10"
   def rocketModule: Option[PublishModule] = None
   def ivyDeps = if(rocketModule.isEmpty) Agg(
